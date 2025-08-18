@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reservation Confirmation</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            line-height: 1.6; 
+            color: #333; 
+            margin: 0; 
+            padding: 0; 
+            background-color: #f4f4f4; 
+        }
+        .container { 
+            max-width: 600px; 
+            margin: 0 auto; 
+            background: white; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.1); 
+        }
+        .header { 
+            background: linear-gradient(135deg, #3B82F6 0%, #1E40AF 100%); 
+            color: white; 
+            padding: 30px 20px; 
+            text-align: center; 
+        }
+        .header h1 { 
+            margin: 0; 
+            font-size: 24px; 
+        }
+        .content { 
+            padding: 30px 20px; 
+        }
+        .success-icon { 
+            text-align: center; 
+            font-size: 48px; 
+            color: #10B981; 
+            margin-bottom: 20px; 
+        }
+        .reservation-details { 
+            background: #f8f9fa; 
+            border-left: 4px solid #3B82F6; 
+            padding: 20px; 
+            margin: 20px 0; 
+            border-radius: 5px; 
+        }
+        .payment-warning { 
+            background: #FEF3C7; 
+            border: 1px solid #F59E0B; 
+            padding: 15px; 
+            border-radius: 5px; 
+            margin: 20px 0; 
+        }
+        .footer { 
+            background: #374151; 
+            color: white; 
+            padding: 20px; 
+            text-align: center; 
+            font-size: 12px; 
+        }
+        .button { 
+            display: inline-block; 
+            padding: 12px 24px; 
+            background: #3B82F6; 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 5px; 
+            margin: 10px 5px; 
+        }
+        .button:hover { 
+            background: #1E40AF; 
+        }
+        .info-row { 
+            display: flex; 
+            justify-content: space-between; 
+            margin: 10px 0; 
+            padding: 8px 0; 
+            border-bottom: 1px solid #e5e7eb; 
+        }
+        .info-label { 
+            font-weight: bold; 
+            color: #374151; 
+        }
+        .info-value { 
+            color: #6B7280; 
+        }
+        .amount { 
+            font-size: 18px; 
+            font-weight: bold; 
+            color: #059669; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎾 Facility Reservation System</h1>
+            <p>Reservation Confirmation</p>
+        </div>
+        
+        <div class="content">
+            <div class="success-icon">✅</div>
+            
+            <h2>Hello {user_name}!</h2>
+            <p>Your reservation has been confirmed successfully! Here are the details:</p>
+            
+            <div class="reservation-details">
+                <h3>📋 Reservation Details</h3>
+                
+                <div class="info-row">
+                    <span class="info-label">Reservation ID:</span>
+                    <span class="info-value">#{reservation_id}</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Facility:</span>
+                    <span class="info-value">{facility_name}</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Date & Time:</span>
+                    <span class="info-value">{start_time} - {end_time}</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Total Amount:</span>
+                    <span class="info-value amount">{total_amount}</span>
+                </div>
+                
+                <div class="info-row">
+                    <span class="info-label">Payment Due:</span>
+                    <span class="info-value">{payment_due}</span>
+                </div>
+            </div>
+            
+            <div class="payment-warning">
+                <h4>⚠️ Important Payment Information</h4>
+                <p><strong>Please settle your payment within 24 hours to avoid automatic cancellation.</strong></p>
+                <p>You can pay at our office during business hours. Please bring this confirmation email or your reservation ID.</p>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="http://localhost/Facility_reservation/my_reservations.php" class="button">View My Reservations</a>
+                <a href="http://localhost/Facility_reservation/index.php" class="button">Browse More Facilities</a>
+            </div>
+            
+            <p>If you have any questions or need to make changes to your reservation, please contact us immediately.</p>
+            
+            <p>Thank you for choosing our facility reservation system!</p>
+        </div>
+        
+        <div class="footer">
+            <p><strong>Facility Reservation System</strong></p>
+            <p>📍 123 Main Street, City, Philippines</p>
+            <p>📞 +63 123 456 7890 | 📧 info@facilityreservation.com</p>
+            <p>&copy; 2024 Facility Reservation System. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
