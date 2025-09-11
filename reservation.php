@@ -10,7 +10,7 @@ $auth->requireRegularUser();
 $pdo = getDBConnection();
 $paymentManager = new PaymentManager();
 
-// Get facility details
+// Get facility details an id
 $facility_id = $_GET['facility_id'] ?? null;
 if (!$facility_id) {
     header('Location: index.php');
