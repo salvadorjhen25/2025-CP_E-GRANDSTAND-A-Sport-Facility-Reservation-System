@@ -7,7 +7,7 @@ $auth->requireAdmin();
 
 $pdo = getDBConnection();
 
-// Get statistics
+// Get stats
 $stats = [];
 
 // Total users (excluding admins)
