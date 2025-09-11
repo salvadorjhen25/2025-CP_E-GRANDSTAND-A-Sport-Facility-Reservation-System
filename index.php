@@ -4,7 +4,7 @@ require_once 'auth/auth.php';
 
 $auth = new Auth();
 
-// Redirect admin users to admin dashboard
+// Redirect admin users to admin dashboards
 if ($auth->isLoggedIn() && $auth->isAdmin()) {
     header('Location: admin/dashboard.php');
     exit();
@@ -1167,3 +1167,4 @@ $upcoming_reservations = $stmt->fetchAll();
     </script>
 </body>
 </html>
+
