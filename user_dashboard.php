@@ -7,7 +7,7 @@ $auth->requireRegularUser();
 
 $pdo = getDBConnection();
 
-// Get user's reservations
+// Get user's reservation
 $stmt = $pdo->prepare("
     SELECT r.*, f.name as facility_name, f.hourly_rate, c.name as category_name
     FROM reservations r
