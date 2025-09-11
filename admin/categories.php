@@ -7,7 +7,7 @@ $auth->requireAdmin();
 
 $pdo = getDBConnection();
 
-// Handle category operations
+// Handle category operation
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['action'])) {
         switch ($_POST['action']) {
@@ -381,3 +381,4 @@ $categories = $stmt->fetchAll();
     </script>
 </body>
 </html>
+
