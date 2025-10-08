@@ -8,7 +8,7 @@ if ($auth->isLoggedIn() && $auth->isAdmin()) {
     exit();
 }
 $pdo = getDBConnection();
-// Get facilities with categories
+// Get facilities with categories and pricing options
 $stmt = $pdo->query("
     SELECT f.*, c.name as category_name 
     FROM facilities f 
@@ -17,6 +17,23 @@ $stmt = $pdo->query("
     ORDER BY f.name
 ");
 $facilities = $stmt->fetchAll();
+
+// Get pricing options for each facility
+foreach ($facilities as &$facility) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT * FROM facility_pricing_options 
+            WHERE facility_id = ? AND is_active = 1 
+            ORDER BY sort_order ASC, name ASC
+            LIMIT 3
+        ");
+        $stmt->execute([$facility['id']]);
+        $facility['pricing_options'] = $stmt->fetchAll();
+    } catch (PDOException $e) {
+        // If tables don't exist yet, set empty array
+        $facility['pricing_options'] = [];
+    }
+}
 // Get categories for filter
 $stmt = $pdo->query("SELECT * FROM categories ORDER BY name");
 $categories = $stmt->fetchAll();
@@ -28,7 +45,6 @@ $stmt = $pdo->query("
         r.end_time,
         r.total_amount,
         r.purpose,
-        r.attendees,
         r.usage_started_at,
         r.status as reservation_status,
         u.full_name as user_name,
@@ -153,7 +169,7 @@ $upcoming_reservations = $stmt->fetchAll();
         
         p, span, div, a, button {
             font-family: 'Poppins', sans-serif !important;
-            color: #374151 !important;
+           
         }
         
         /* Enhanced Hero Section */
@@ -201,9 +217,8 @@ $upcoming_reservations = $stmt->fetchAll();
         
         /* Enhanced Navigation */
         .nav-bar {
-            background: rgba(255, 255, 255, 0.98) !important;
-            backdrop-filter: blur(20px) !important;
-            border-bottom: 1px solid #e5e7eb !important;
+            background: #1e40af !important;
+            border-bottom: 1px solid #1d4ed8 !important;
             position: sticky !important;
             top: 0 !important;
             z-index: 100 !important;
@@ -223,14 +238,88 @@ $upcoming_reservations = $stmt->fetchAll();
         .nav-title {
             font-family: 'Poppins', sans-serif !important;
             font-weight: 800 !important;
-            color: #1e40af !important;
+            color: white !important;
             font-size: 1.5rem !important;
         }
         
         .nav-user-name {
             font-family: 'Poppins', sans-serif !important;
             font-weight: 600 !important;
-            color: #374151 !important;
+            color: white !important;
+        }
+        
+        /* Unified Navigation Buttons */
+        .nav-btn {
+            background: rgba(255, 255, 255, 0.15) !important;
+            color: white !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            padding: 0.75rem 1.5rem !important;
+            border-radius: 0.5rem !important;
+            font-family: 'Poppins', sans-serif !important;
+            font-weight: 600 !important;
+            font-size: 0.875rem !important;
+            text-decoration: none !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 0.5rem !important;
+            transition: all 0.3s ease !important;
+            min-width: 140px !important;
+            justify-content: center !important;
+            backdrop-filter: blur(10px) !important;
+        }
+        
+        .nav-btn:hover {
+            background: rgba(255, 255, 255, 0.25) !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+        }
+        
+        .nav-btn.logout-btn {
+            background: rgba(220, 38, 38, 0.8) !important;
+            border: 1px solid rgba(220, 38, 38, 0.9) !important;
+        }
+        
+        .nav-btn.logout-btn:hover {
+            background: rgba(220, 38, 38, 1) !important;
+            transform: translateY(-2px) !important;
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3) !important;
+        }
+        
+        .nav-user-info {
+            display: flex !important;
+            align-items: center !important;
+            gap: 0.75rem !important;
+            background: rgba(255, 255, 255, 0.1) !important;
+            padding: 0.75rem 1rem !important;
+            border-radius: 0.5rem !important;
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            backdrop-filter: blur(10px) !important;
+        }
+        
+        .nav-user-icon {
+            color: white !important;
+            font-size: 1rem !important;
+        }
+        
+        /* Navigation Menu Visibility */
+        .nav-menu {
+            display: flex !important;
+            align-items: center !important;
+            gap: 1rem !important;
+        }
+        
+        .nav-menu-mobile {
+            display: none !important;
+        }
+        
+        @media (max-width: 768px) {
+            .nav-menu {
+                display: none !important;
+            }
+            
+            .nav-menu-mobile {
+                display: block !important;
+            }
         }
         
         /* Enhanced Buttons */
@@ -477,8 +566,7 @@ $upcoming_reservations = $stmt->fetchAll();
                             <i class="fas fa-user-shield nav-user-icon"></i>
                             <span class="nav-user-name">Admin: <?php echo htmlspecialchars($_SESSION['full_name']); ?></span>
                         </div>
-                        <a href="admin/dashboard.php" class="btn-secondary nav-btn">
-                            <i class="fas fa-cog"></i>
+                        <a href="admin/dashboard.php" class="nav-btn">
                             <span>Admin Panel</span>
                         </a>
                     <?php else: ?>
@@ -486,13 +574,9 @@ $upcoming_reservations = $stmt->fetchAll();
                             <i class="fas fa-user nav-user-icon"></i>
                             <span class="nav-user-name">Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?></span>
                         </div>
-                        <a href="my_reservations.php" class="btn-primary nav-btn">
-                            <i class="fas fa-calendar"></i>
-                            <span>My Reservations</span>
-                        </a>
+                        
                     <?php endif; ?>
-                    <a href="auth/logout.php" class="btn-danger nav-btn">
-                        <i class="fas fa-sign-out-alt"></i>
+                    <a href="auth/logout.php" class="nav-btn logout-btn" onclick="return confirmLogout()">
                         <span>Logout</span>
                     </a>
                 <?php else: ?>
@@ -522,22 +606,25 @@ $upcoming_reservations = $stmt->fetchAll();
                 <?php if ($auth->isLoggedIn()): ?>
                     <div style="display: flex; flex-direction: column; gap: 0.75rem;">
                         <?php if ($auth->isAdmin()): ?>
-                            <div style="color: var(--text-light); padding: 0.75rem; background: var(--gray-50); border-radius: 8px; font-weight: 500;">
+                            <div style="color: white; padding: 0.75rem; background: rgba(255, 255, 255, 0.1); border-radius: 8px; font-weight: 500; border: 1px solid rgba(255, 255, 255, 0.2);">
                                 <i class="fas fa-user-shield" style="margin-right: 0.5rem;"></i>Admin: <?php echo htmlspecialchars($_SESSION['full_name']); ?>
                             </div>
-                            <a href="admin/dashboard.php" class="btn-secondary" style="display: block; text-align: center;">
-                                <i class="fas fa-cog"></i>Admin Panel
+                            <a href="admin/dashboard.php" class="nav-btn" style="display: block; text-align: center;">
+                                Admin Panel
                             </a>
                         <?php else: ?>
-                            <div style="color: var(--text-light); padding: 0.75rem; background: var(--gray-50); border-radius: 8px; font-weight: 500;">
+                            <div style="color: white; padding: 0.75rem; background: rgba(255, 255, 255, 0.1); border-radius: 8px; font-weight: 500; border: 1px solid rgba(255, 255, 255, 0.2);">
                                 <i class="fas fa-user" style="margin-right: 0.5rem;"></i>Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?>
                             </div>
-                            <a href="my_reservations.php" class="btn-primary" style="display: block; text-align: center;">
-                                <i class="fas fa-calendar"></i>My Reservations
+                            <a href="facilities.php" class="nav-btn" style="display: block; text-align: center;">
+                                Facilities
+                            </a>
+                            <a href="my_reservations.php" class="nav-btn" style="display: block; text-align: center;">
+                                My Reservations
                             </a>
                         <?php endif; ?>
-                        <a href="auth/logout.php" class="btn-danger" style="display: block; text-align: center;">
-                            <i class="fas fa-sign-out-alt"></i>Logout
+                        <a href="auth/logout.php" class="nav-btn logout-btn" style="display: block; text-align: center;" onclick="return confirmLogout()">
+                            Logout
                         </a>
                     </div>
                 <?php else: ?>
@@ -590,7 +677,7 @@ $upcoming_reservations = $stmt->fetchAll();
                         <i class="fas fa-calendar"></i>
                         <span>My Reservations</span>
                     </a>
-                    <a href="#facilities" class="btn-secondary btn-hero">
+                    <a href="facilities.php" class="btn-secondary btn-hero">
                         <i class="fas fa-building"></i>
                         <span>Browse Facilities</span>
                     </a>
@@ -811,176 +898,9 @@ $upcoming_reservations = $stmt->fetchAll();
                     </div>
                 </div>
             <?php endif; ?>
-            <!-- Enhanced Filter Section -->
-            <div class="enhanced-filter-section">
-                <div class="filter-header" style="text-align: center; margin-bottom: 3rem;">
-                    <div class="filter-title-container" style="display: flex; align-items: center; justify-content: center; margin-bottom: 1rem;">
-                        <div class="filter-icon" style="width: 60px; height: 60px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 1rem; box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);">
-                            <i class="fas fa-filter" style="color: white; font-size: 1.5rem;"></i>
-                        </div>
-                        <h3 class="filter-title">Filter Facilities</h3>
-                    </div>
-                    <p class="filter-subtitle" style="font-family: 'Poppins', sans-serif; color: #6b7280; font-size: 1.125rem; font-weight: 500;">Find the perfect facility by filtering by category, price, and capacity</p>
-                </div>
-                
-                <div class="filter-controls" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2rem; margin-bottom: 2rem;">
-                    <div class="filter-group">
-                        <label class="enhanced-form-label" style="font-family: 'Poppins', sans-serif; font-weight: 600; color: #374151; margin-bottom: 0.75rem; display: flex; align-items: center; font-size: 1rem;">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4" style="width: 16px; height: 16px; margin-right: 0.5rem; color: #3b82f6;">
-                                <path fill-rule="evenodd" d="M4.5 2A2.5 2.5 0 0 0 2 4.5v2.879a2.5 2.5 0 0 0 .732 1.767l4.5 4.5a2.5 2.5 0 0 0 3.536 0l2.878-2.878a2.5 2.5 0 0 0 0-3.536l-4.5-4.5A2.5 2.5 0 0 0 7.38 2H4.5ZM5 6a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd" />
-                            </svg>
-                            Category
-                        </label>
-                        <select id="categoryFilter" class="enhanced-form-control">
-                            <option value="">All Categories</option>
-                            <?php foreach ($categories as $category): ?>
-                                <option value="<?php echo htmlspecialchars($category['name']); ?>">
-                                    <?php echo htmlspecialchars($category['name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label class="enhanced-form-label" style="font-family: 'Poppins', sans-serif; font-weight: 600; color: #374151; margin-bottom: 0.75rem; display: flex; align-items: center; font-size: 1rem;">
-                            <i class="fas fa-dollar-sign" style="margin-right: 0.5rem; color: #3b82f6;"></i>
-                            Price Range
-                        </label>
-                        <select id="priceFilter" class="enhanced-form-control">
-                            <option value="">All Prices</option>
-                            <option value="0-25">₱0 - ₱25</option>
-                            <option value="26-50">₱26 - ₱50</option>
-                            <option value="51-100">₱51 - ₱100</option>
-                            <option value="101+">₱101+</option>
-                        </select>
-                    </div>
-                    
-                    <div class="filter-group">
-                        <label class="enhanced-form-label" style="font-family: 'Poppins', sans-serif; font-weight: 600; color: #374151; margin-bottom: 0.75rem; display: flex; align-items: center; font-size: 1rem;">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4" style="width: 16px; height: 16px; margin-right: 0.5rem; color: #3b82f6;">
-                                <path d="M8 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM3.156 11.763c.16-.629.44-1.21.813-1.72a2.5 2.5 0 0 0-2.725 1.377c-.136.287.102.58.418.58h1.449c.01-.077.025-.156.045-.237ZM12.847 11.763c.02.08.036.16.046.237h1.446c.316 0 .554-.293.417-.579a2.5 2.5 0 0 0-2.722-1.378c.374.51.653 1.09.813 1.72ZM14 7.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0ZM3.5 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM5 13c-.552 0-1.013-.455-.876-.99a4.002 4.002 0 0 1 7.753 0c.136.535-.324.99-.877.99H5Z" />
-                            </svg>
-                            Capacity
-                        </label>
-                        <select id="capacityFilter" class="enhanced-form-control">
-                            <option value="">All Capacities</option>
-                            <option value="1-10">1 - 10 people</option>
-                            <option value="11-25">11 - 25 people</option>
-                            <option value="26-50">26 - 50 people</option>
-                            <option value="51+">51+ people</option>
-                        </select>
-                    </div>
-                </div>
-                
-                <div class="filter-actions" style="display: flex; justify-content: center; align-items: center; gap: 1rem;">
-                    <button onclick="clearFilters()" class="btn-secondary btn-clear-filters" style="font-family: 'Poppins', sans-serif; font-weight: 600; padding: 1rem 2rem; border-radius: 1rem; background: #f3f4f6; color: #374151; border: 2px solid #e5e7eb; transition: all 0.3s ease; display: flex; align-items: center; gap: 0.5rem;">
-                        <i class="fas fa-undo"></i>
-                        <span>Clear Filters</span>
-                    </button>
-                    <div class="active-filters" id="activeFilters"></div>
-                </div>
-            </div>
+           
             <!-- Enhanced Facilities Grid -->
-            <div id="facilities" class="facilities-section" style="margin-top: 4rem;">
-                <div class="section-header" style="text-align: center; margin-bottom: 3rem;">
-                    <h2 class="section-title" style="font-family: 'Poppins', sans-serif; font-size: 2.5rem; font-weight: 800; color: #111827; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center;">
-                        <i class="fas fa-building section-icon" style="margin-right: 1rem; color: #3b82f6; font-size: 2.25rem;"></i>
-                        Available Facilities
-                    </h2>
-                    <p class="section-subtitle" style="font-family: 'Poppins', sans-serif; color: #6b7280; font-size: 1.25rem; font-weight: 500;">Choose from our wide range of modern facilities for your next event</p>
-                </div>
-                
-                <div class="facilities-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 2rem;">
-                    <?php foreach ($facilities as $facility): ?>
-                        <div class="facility-card enhanced" 
-                             data-category="<?php echo htmlspecialchars($facility['category_name']); ?>"
-                             data-price="<?php echo $facility['hourly_rate']; ?>"
-                             data-capacity="<?php echo $facility['capacity']; ?>"
-                             style="background: white; border-radius: 1.5rem; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden;"
-                             onmouseover="this.style.transform='translateY(-8px) scale(1.02)'; this.style.boxShadow='0 25px 50px rgba(0, 0, 0, 0.25)'"
-                             onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.boxShadow='0 10px 25px rgba(0, 0, 0, 0.1)'">
-                            
-                            <!-- Enhanced Facility Image -->
-                            <div class="facility-image-container">
-                                <?php if (!empty($facility['image_url']) && file_exists($facility['image_url'])): ?>
-                                    <img src="<?php echo htmlspecialchars($facility['image_url']); ?>" 
-                                         alt="<?php echo htmlspecialchars($facility['name']); ?>"
-                                         class="facility-image">
-                                <?php else: ?>
-                                    <div class="facility-image-placeholder">
-                                        <i class="fas fa-building"></i>
-                                        <p>No Image Available</p>
-                                    </div>
-                                <?php endif; ?>
-                                
-                                <!-- Enhanced Category Badge -->
-                                <div class="category-badge">
-                                    <span class="badge-text">
-                                        <?php echo htmlspecialchars($facility['category_name']); ?>
-                                    </span>
-                                </div>
-                                
-                                <!-- Quick Info Overlay -->
-                                <div class="facility-overlay">
-                                    <div class="overlay-content">
-                                        <div class="overlay-stat">
-                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4" style="width: 16px; height: 16px;">
-                                                <path d="M8 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM3.156 11.763c.16-.629.44-1.21.813-1.72a2.5 2.5 0 0 0-2.725 1.377c-.136.287.102.58.418.58h1.449c.01-.077.025-.156.045-.237ZM12.847 11.763c.02.08.036.16.046.237h1.446c.316 0 .554-.293.417-.579a2.5 2.5 0 0 0-2.722-1.378c.374.51.653 1.09.813 1.72ZM14 7.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0ZM3.5 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM5 13c-.552 0-1.013-.455-.876-.99a4.002 4.002 0 0 1 7.753 0c.136.535-.324.99-.877.99H5Z" />
-                                            </svg>
-                                            <span><?php echo $facility['capacity']; ?> people</span>
-                                        </div>
-                                        <div class="overlay-stat">
-                                            <i class="fas fa-clock"></i>
-                                            <span>₱<?php echo number_format($facility['hourly_rate'], 2); ?>/hr</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <!-- Enhanced Facility Content -->
-                            <div class="facility-content" style="padding: 2rem;">
-                                <div class="facility-header" style="margin-bottom: 1.5rem;">
-                                    <h3 class="facility-title" style="font-family: 'Poppins', sans-serif; font-weight: 800; color: #111827; font-size: 1.5rem; margin-bottom: 1rem;"><?php echo htmlspecialchars($facility['name']); ?></h3>
-                                    <div class="facility-meta" style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                                        <div class="price-tag enhanced" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 0.75rem 1.25rem; border-radius: 25px; font-family: 'Poppins', sans-serif; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);">
-                                            <i class="fas fa-tag"></i>
-                                            <span>₱<?php echo number_format($facility['hourly_rate'], 2); ?>/hr</span>
-                                        </div>
-                                        <div class="capacity-badge enhanced" style="background: linear-gradient(135deg, #10b981, #059669); color: white; padding: 0.75rem 1.25rem; border-radius: 25px; font-family: 'Poppins', sans-serif; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);">
-                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4" style="width: 16px; height: 16px;">
-                                                <path d="M8 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM3.156 11.763c.16-.629.44-1.21.813-1.72a2.5 2.5 0 0 0-2.725 1.377c-.136.287.102.58.418.58h1.449c.01-.077.025-.156.045-.237ZM12.847 11.763c.02.08.036.16.046.237h1.446c.316 0 .554-.293.417-.579a2.5 2.5 0 0 0-2.722-1.378c.374.51.653 1.09.813 1.72ZM14 7.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0ZM3.5 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM5 13c-.552 0-1.013-.455-.876-.99a4.002 4.002 0 0 1 7.753 0c.136.535-.324.99-.877.99H5Z" />
-                                            </svg>
-                                            <span><?php echo $facility['capacity']; ?> people</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                
-                                <p class="facility-description" style="font-family: 'Poppins', sans-serif; color: #6b7280; line-height: 1.6; margin-bottom: 2rem; font-size: 1rem; font-weight: 500;"><?php echo htmlspecialchars($facility['description']); ?></p>
-                                
-                                <!-- Enhanced Action Buttons -->
-                                <div class="facility-actions" style="display: flex; gap: 1rem; flex-wrap: wrap;">
-                                    <a href="facility_details.php?facility_id=<?php echo $facility['id']; ?>" 
-                                       class="btn-secondary btn-outline" style="font-family: 'Poppins', sans-serif; font-weight: 600; padding: 1rem 1.5rem; border-radius: 1rem; background: #f3f4f6; color: #374151; border: 2px solid #e5e7eb; text-decoration: none; display: flex; align-items: center; gap: 0.5rem; transition: all 0.3s ease; flex: 1; justify-content: center;">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4" style="width: 16px; height: 16px;">
-                                            <path fill-rule="evenodd" d="M15 8A7 7 0 1 1 1 8a7 7 0 0 1 14 0ZM9 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM6.75 8a.75.75 0 0 0 0 1.5h.75v1.75a.75.75 0 0 0 1.5 0v-2.5A.75.75 0 0 0 8.25 8h-1.5Z" clip-rule="evenodd" />
-                                        </svg>
-                                        <span>View Details</span>
-                                    </a>
-                                    <?php if ($_SESSION['role'] !== 'admin'): ?>
-                                    <a href="reservation.php?facility_id=<?php echo $facility['id']; ?>" 
-                                       class="btn-primary btn-filled" style="font-family: 'Poppins', sans-serif; font-weight: 600; padding: 1rem 1.5rem; border-radius: 1rem; background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; text-decoration: none; display: flex; align-items: center; gap: 0.5rem; transition: all 0.3s ease; flex: 1; justify-content: center; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4" style="width: 16px; height: 16px;">
-                                            <path d="M3.75 2a.75.75 0 0 0-.75.75v10.5a.75.75 0 0 0 1.28.53L8 10.06l3.72 3.72a.75.75 0 0 0 1.28-.53V2.75a.75.75 0 0 0-.75-.75h-8.5Z" />
-                                        </svg>
-                                        <span>Book Now</span>
-                                    </a>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            </div>
+           
             <!-- No Results Message -->
             <div id="noResults" class="hidden" style="text-align: center; padding: 4rem 0;">
                 <i class="fas fa-search" style="color: #9ca3af; font-size: 4rem; margin-bottom: 1.5rem;"></i>
@@ -1007,55 +927,8 @@ $upcoming_reservations = $stmt->fetchAll();
             </div>
         <?php endif; ?>
     </div>
-    <!-- Footer -->
-    <footer class="footer" style="padding: 5rem 0; margin-top: 6rem; background: linear-gradient(135deg, #1f2937, #374151);">
-        <div class="footer-container" style="max-width: 1200px; margin: 0 auto; padding: 0 2rem;">
-            <div class="footer-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 3rem; margin-bottom: 3rem;">
-                <!-- Company Info -->
-                <div class="footer-section" style="text-align: center;">
-                    <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 1.5rem;">
-                        <div class="nav-logo" style="width: 50px; height: 50px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 1rem; box-shadow: 0 10px 25px rgba(59, 130, 246, 0.3);">
-                            <i class="fas fa-building" style="color: white; font-size: 1.5rem;"></i>
-                        </div>
-                        <h3 style="font-family: 'Poppins', sans-serif; font-size: 1.5rem; font-weight: 800; color: white;"><?php echo SITE_NAME; ?></h3>
-                    </div>
-                    <p style="font-family: 'Poppins', sans-serif; color: #d1d5db; line-height: 1.6; font-size: 1rem; font-weight: 500;">Your trusted partner for facility reservations. Easy booking, reliable service, and exceptional experiences.</p>
-                </div>
-                <!-- Quick Links -->
-                <div class="footer-section" style="text-align: center;">
-                    <h4 style="font-family: 'Poppins', sans-serif; font-size: 1.25rem; font-weight: 700; margin-bottom: 1.5rem; color: white;">Quick Links</h4>
-                    <div style="display: flex; flex-direction: column; gap: 1rem;">
-                        <a href="#facilities" style="font-family: 'Poppins', sans-serif; color: #d1d5db; text-decoration: none; transition: color 0.3s ease; font-weight: 500; font-size: 1rem;">Browse Facilities</a>
-                        <a href="auth/login.php" style="font-family: 'Poppins', sans-serif; color: #d1d5db; text-decoration: none; transition: color 0.3s ease; font-weight: 500; font-size: 1rem;">Login</a>
-                        <a href="auth/register.php" style="font-family: 'Poppins', sans-serif; color: #d1d5db; text-decoration: none; transition: color 0.3s ease; font-weight: 500; font-size: 1rem;">Register</a>
-                        <a href="#no-show-policy" style="font-family: 'Poppins', sans-serif; color: #d1d5db; text-decoration: none; transition: color 0.3s ease; font-weight: 500; font-size: 1rem;">No-Show Policy</a>
-                    </div>
-                </div>
-                <!-- Contact Info -->
-                <div class="footer-section" style="text-align: center;">
-                    <h4 style="font-family: 'Poppins', sans-serif; font-size: 1.25rem; font-weight: 700; margin-bottom: 1.5rem; color: white;">Contact Us</h4>
-                    <div style="display: flex; flex-direction: column; gap: 1rem;">
-                        <p style="font-family: 'Poppins', sans-serif; display: flex; align-items: center; justify-content: center; color: #d1d5db; font-weight: 500; font-size: 1rem;">
-                            <i class="fas fa-envelope" style="margin-right: 0.75rem; color: #3b82f6; font-size: 1.125rem;"></i>
-                            support@facilityreservation.com
-                        </p>
-                        <p style="font-family: 'Poppins', sans-serif; display: flex; align-items: center; justify-content: center; color: #d1d5db; font-weight: 500; font-size: 1rem;">
-                            <i class="fas fa-phone" style="margin-right: 0.75rem; color: #3b82f6; font-size: 1.125rem;"></i>
-                            +63 912 345 6789
-                        </p>
-                        <p style="font-family: 'Poppins', sans-serif; display: flex; align-items: center; justify-content: center; color: #d1d5db; font-weight: 500; font-size: 1rem;">
-                            <i class="fas fa-map-marker-alt" style="margin-right: 0.75rem; color: #3b82f6; font-size: 1.125rem;"></i>
-                            Manila, Philippines
-                        </p>
-                    </div>
-                </div>
-            </div>
-            <!-- Bottom Section -->
-            <div class="footer-bottom" style="text-align: center; padding-top: 2rem; border-top: 1px solid #4b5563;">
-                <p style="font-family: 'Poppins', sans-serif; color: #9ca3af; font-size: 1rem; font-weight: 500;">&copy; 2024 <?php echo SITE_NAME; ?>. All rights reserved.</p>
-            </div>
-        </div>
-    </footer>
+
+   
     <script>
         // Enhanced Mobile menu functionality
         document.addEventListener('DOMContentLoaded', function() {
@@ -1359,6 +1232,12 @@ $upcoming_reservations = $stmt->fetchAll();
                 location.reload();
             }, 5 * 60 * 1000);
         });
+        
+        // Logout confirmation function
+        function confirmLogout() {
+            return confirm('⚠️ Are you sure you want to logout?\n\nThis will end your current session and you will need to login again to access your reservations.');
+        }
     </script>
 </body>
 </html>
+
