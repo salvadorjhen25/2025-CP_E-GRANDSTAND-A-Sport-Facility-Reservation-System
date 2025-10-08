@@ -1,31 +1,25 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../auth/auth.php';
-
 $auth = new Auth();
-
-// Redirect if already logged in as admin
-if ($auth->isLoggedIn() && $auth->isAdmin()) {
+// Redirect if already logged in as admin or staff
+if ($auth->isLoggedIn() && $auth->isAdminOrStaff()) {
     header('Location: dashboard.php');
     exit();
 }
-
 // Redirect if already logged in as regular user
 if ($auth->isLoggedIn() && $auth->isRegularUser()) {
     header('Location: ../index.php');
     exit();
 }
-
 // Handle admin login form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'admin_login') {
     $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
-    
     if (empty($username) || empty($password)) {
         $login_error = 'Please enter both username and password.';
     } else {
         $result = $auth->adminLogin($username, $password);
-        
         if ($result['success']) {
             header('Location: dashboard.php');
             exit();
@@ -35,7 +29,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -111,7 +104,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             <p class="text-gray-600">Authenticating...</p>
         </div>
     </div>
-
     <div class="min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-8">
             <!-- Logo and Title -->
@@ -128,7 +120,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     Restricted Area
                 </div>
             </div>
-
             <!-- Login Form -->
             <div class="glass-effect rounded-2xl shadow-2xl p-8 login-card animate-slide-up" style="animation-delay: 0.2s;">
                 <?php if (isset($login_error)): ?>
@@ -139,10 +130,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         </div>
                     </div>
                 <?php endif; ?>
-
                 <form class="space-y-6" method="POST" action="login.php" id="adminLoginForm">
                     <input type="hidden" name="action" value="admin_login">
-                    
                     <!-- Username/Email Field -->
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -152,7 +141,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                                class="form-input appearance-none block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500 transition duration-200"
                                placeholder="Enter admin username">
                     </div>
-
                     <!-- Password Field -->
                     <div class="relative">
                         <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -165,7 +153,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                             <i class="fas fa-eye text-gray-400 hover:text-gray-600 transition duration-200"></i>
                         </button>
                     </div>
-
                     <!-- Security Notice -->
                     <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                         <div class="flex items-center">
@@ -176,7 +163,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                             </div>
                         </div>
                     </div>
-
                     <!-- Submit Button -->
                     <div>
                         <button type="submit" id="submitBtn"
@@ -188,9 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         </button>
                     </div>
                 </form>
-
             </div>
-
             <!-- Footer -->
             <div class="text-center animate-fade-in" style="animation-delay: 0.4s;">
                 <p class="text-blue-200 text-sm">
@@ -204,7 +188,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             </div>
         </div>
     </div>
-
     <script>
         // Hide loading overlay when page is ready
         window.addEventListener('load', function() {
@@ -216,63 +199,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 }, 300);
             }
         });
-
         document.addEventListener('DOMContentLoaded', function() {
             const adminLoginForm = document.getElementById('adminLoginForm');
             const submitBtn = document.getElementById('submitBtn');
             const togglePassword = document.getElementById('togglePassword');
             const passwordInput = document.getElementById('password');
             const usernameInput = document.getElementById('username');
-
             // Password visibility toggle
             togglePassword.addEventListener('click', function() {
                 const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
                 passwordInput.setAttribute('type', type);
-                
                 const icon = this.querySelector('i');
                 icon.classList.toggle('fa-eye');
                 icon.classList.toggle('fa-eye-slash');
             });
-
             // Form validation and submission
             adminLoginForm.addEventListener('submit', function(e) {
                 e.preventDefault();
-
                 // Basic validation
                 const username = usernameInput.value.trim();
                 const password = passwordInput.value;
-
                 if (!username || !password) {
                     showError('Please fill in all fields');
                     return;
                 }
-
                 // Show loading state
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Authenticating...';
-                
                 // Show loading overlay
                 const loadingOverlay = document.getElementById('loading-overlay');
                 loadingOverlay.style.display = 'flex';
                 loadingOverlay.style.opacity = '1';
-
                 // Submit form
                 this.submit();
             });
-
             // Real-time validation
             usernameInput.addEventListener('input', function() {
                 validateField(this, 'Please enter admin username');
             });
-
             passwordInput.addEventListener('input', function() {
                 validateField(this, 'Password is required');
             });
-
             function validateField(field, message) {
                 const value = field.value.trim();
                 const isValid = value.length > 0;
-                
                 if (isValid) {
                     field.classList.remove('border-red-300');
                     field.classList.add('border-green-300');
@@ -282,11 +252,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     field.classList.add('border-red-300');
                 }
             }
-
             function showError(message) {
                 // Remove existing error
                 hideError();
-                
                 // Create error element
                 const errorDiv = document.createElement('div');
                 errorDiv.className = 'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6 animate-fade-in error-shake';
@@ -296,25 +264,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         ${message}
                     </div>
                 `;
-                
                 // Insert before form
                 adminLoginForm.parentNode.insertBefore(errorDiv, adminLoginForm);
             }
-
             function hideError() {
                 const existingError = document.querySelector('.bg-red-100');
                 if (existingError) {
                     existingError.remove();
                 }
             }
-
             // Keyboard shortcuts
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
                     adminLoginForm.dispatchEvent(new Event('submit'));
                 }
             });
-
             // Auto-focus username field
             usernameInput.focus();
         });
