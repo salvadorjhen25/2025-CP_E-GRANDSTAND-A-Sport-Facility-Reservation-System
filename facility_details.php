@@ -11,7 +11,13 @@ if (!$facility_id) {
     exit();
 }
 $stmt = $pdo->prepare("
-    SELECT f.*, c.name as category_name 
+    SELECT f.*, c.name as category_name,
+           CASE 
+               WHEN f.is_closed_for_event = 1 AND f.closure_end_date >= CURDATE() THEN 1
+               ELSE 0
+           END as is_currently_closed,
+           f.closure_reason,
+           f.closure_end_date
     FROM facilities f 
     LEFT JOIN categories c ON f.category_id = c.id 
     WHERE f.id = ? AND f.is_active = 1
@@ -121,6 +127,273 @@ for ($hour = $start_hour; $hour <= $end_hour; $hour++) {
     </script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        /* Modern Sidebar Navigation */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 280px;
+            background: linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%);
+            z-index: 1000;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar.collapsed {
+            transform: translateX(-100%);
+        }
+        
+        .sidebar-header {
+            padding: 2rem 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .sidebar-logo {
+            width: 48px;
+            height: 48px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .sidebar-title {
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
+            font-size: 1.25rem;
+            color: white;
+            line-height: 1.2;
+        }
+        
+        .sidebar-user {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+        }
+        
+        .sidebar-user-avatar {
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1rem;
+        }
+        
+        .sidebar-user-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .sidebar-user-name {
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: white;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .sidebar-user-role {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .sidebar-nav {
+            flex: 1;
+            padding: 1.5rem 1rem;
+            overflow-y: auto;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .sidebar-nav::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+        
+        .sidebar-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.875rem 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 12px;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .sidebar-nav-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 3px;
+            background: white;
+            transform: scaleY(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar-nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            transform: translateX(4px);
+        }
+        
+        .sidebar-nav-item:hover::before {
+            transform: scaleY(1);
+        }
+        
+        .sidebar-nav-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            font-weight: 600;
+        }
+        
+        .sidebar-nav-item.active::before {
+            transform: scaleY(1);
+        }
+        
+        .sidebar-nav-item i {
+            font-size: 1.1rem;
+            width: 24px;
+            text-align: center;
+        }
+        
+        .sidebar-nav-item.logout {
+            background: rgba(220, 38, 38, 0.15);
+            color: #fca5a5;
+            margin-top: auto;
+        }
+        
+        .sidebar-nav-item.logout:hover {
+            background: rgba(220, 38, 38, 0.3);
+            color: #fecaca;
+        }
+        
+        .sidebar-footer {
+            padding: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Mobile Toggle Button */
+        .sidebar-toggle {
+            position: fixed;
+            top: 1.25rem;
+            left: 1.25rem;
+            z-index: 1001;
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border: none;
+            border-radius: 12px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-toggle:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5);
+        }
+        
+        .sidebar-toggle i {
+            color: white;
+            font-size: 1.25rem;
+        }
+        
+        /* Sidebar Overlay */
+        .sidebar-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        /* Main Content Wrapper */
+        .main-wrapper {
+            margin-left: 280px;
+            min-height: 100vh;
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            
+            .sidebar-toggle {
+                display: flex;
+            }
+            
+            .main-wrapper {
+                margin-left: 0;
+                padding-top: 80px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 260px;
+            }
+            
+            .sidebar-toggle {
+                top: 1rem;
+                left: 1rem;
+            }
+        }
+        
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -289,76 +562,72 @@ for ($hour = $start_hour; $hour <= $end_hour; $hour++) {
     </style>
 </head>
 <body class="bg-gradient-to-br from-blue-50 via-white to-purple-50 min-h-screen">
-    <!-- Enhanced Navigation -->
-    <nav class="glass-effect sticky top-0 z-40 shadow-lg">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between h-16">
-                <div class="flex items-center">
-                    <a href="index.php" class="flex items-center space-x-3 group">
-                        <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300">
-                            <i class="fas fa-building text-white text-lg"></i>
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    
+    <!-- Mobile Toggle Button -->
+    <button class="sidebar-toggle" id="sidebarToggle">
+        <i class="fas fa-bars"></i>
+    </button>
+    
+    <!-- Modern Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+        <!-- Sidebar Header -->
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <div class="sidebar-logo">
+                    <i class="fas fa-building text-white text-xl"></i>
                         </div>
-                        <div>
-                            <h1 class="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                                <?php echo SITE_NAME; ?>
-                            </h1>
-                            <p class="text-xs text-gray-500">Facility Management</p>
+                <h1 class="sidebar-title"><?php echo SITE_NAME; ?></h1>
                         </div>
-                    </a>
+            
+            <!-- User Info -->
+            <div class="sidebar-user">
+                <div class="sidebar-user-avatar">
+                    <i class="fas fa-user"></i>
                 </div>
-                <!-- Desktop Navigation -->
-                <div class="hidden md:flex items-center space-x-4">
-                    <div class="flex items-center space-x-2 bg-white/80 rounded-full px-4 py-2 shadow-sm">
-                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <span class="text-sm font-medium text-gray-700">
-                            Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?>
-                        </span>
+                <div class="sidebar-user-info">
+                    <div class="sidebar-user-name"><?php echo htmlspecialchars($_SESSION['full_name']); ?></div>
+                    <div class="sidebar-user-role">User</div>
                     </div>
-                    <a href="my_reservations.php" class="btn-enhanced btn-primary-enhanced group">
-                        <i class="fas fa-calendar mr-2 group-hover:rotate-12 transition-transform duration-200"></i>
-                        My Reservations
-                    </a>
-                    <a href="index.php" class="btn-enhanced btn-secondary-enhanced group">
-                        <i class="fas fa-home mr-2 group-hover:scale-110 transition-transform duration-200"></i>
-                        Home
-                    </a>
-                    <a href="auth/logout.php" class="btn-enhanced btn-danger-enhanced group">
-                        <i class="fas fa-sign-out-alt mr-2 group-hover:translate-x-1 transition-transform duration-200"></i>
-                        Logout
-                    </a>
-                </div>
-                <!-- Mobile menu button -->
-                <div class="md:hidden">
-                    <button id="mobile-menu-button" class="p-2 rounded-lg bg-white/80 shadow-sm hover:bg-white transition-colors duration-200">
-                        <i class="fas fa-bars text-gray-700 text-lg"></i>
-                    </button>
-                </div>
-            </div>
-            <!-- Mobile Navigation -->
-            <div id="mobile-menu" class="hidden md:hidden pb-4 animate-slide-up">
-                <div class="space-y-3">
-                    <div class="flex items-center space-x-2 bg-white/80 rounded-lg px-4 py-3 shadow-sm">
-                        <div class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <span class="text-sm font-medium text-gray-700">
-                            Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?>
-                        </span>
-                    </div>
-                    <a href="my_reservations.php" class="block btn-enhanced btn-primary-enhanced group">
-                        <i class="fas fa-calendar mr-2 group-hover:rotate-12 transition-transform duration-200"></i>
-                        My Reservations
-                    </a>
-                    <a href="index.php" class="block btn-enhanced btn-secondary-enhanced group">
-                        <i class="fas fa-home mr-2 group-hover:scale-110 transition-transform duration-200"></i>
-                        Home
-                    </a>
-                    <a href="auth/logout.php" class="block btn-enhanced btn-danger-enhanced group">
-                        <i class="fas fa-sign-out-alt mr-2 group-hover:translate-x-1 transition-transform duration-200"></i>
-                        Logout
-                    </a>
-                </div>
             </div>
         </div>
-    </nav>
+        
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar-nav">
+            <a href="index.php" class="sidebar-nav-item">
+                <i class="fas fa-home"></i>
+                <span>Home</span>
+            </a>
+            <a href="facilities.php" class="sidebar-nav-item active">
+                <i class="fas fa-building"></i>
+                <span>Facilities</span>
+            </a>
+            <a href="my_reservations.php" class="sidebar-nav-item">
+                <i class="fas fa-calendar-check"></i>
+                <span>My Reservations</span>
+            </a>
+            <a href="archived_reservations.php" class="sidebar-nav-item">
+                <i class="fas fa-archive"></i>
+                <span>Archived</span>
+            </a>
+            <a href="usage_history.php" class="sidebar-nav-item">
+                <i class="fas fa-history"></i>
+                <span>Usage History</span>
+            </a>
+        </nav>
+        
+        <!-- Sidebar Footer -->
+        <div class="sidebar-footer">
+            <a href="auth/logout.php" class="sidebar-nav-item logout" onclick="return confirmLogout()">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
+                    </a>
+                </div>
+    </aside>
+
+    <!-- Main Content Wrapper -->
+    <div class="main-wrapper">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <!-- Breadcrumb Navigation -->
         <nav class="mb-8 animate-fade-in">
@@ -372,7 +641,7 @@ for ($hour = $start_hour; $hour <= $end_hour; $hour++) {
                     <i class="fas fa-chevron-right text-gray-400"></i>
                 </li>
                 <li>
-                    <a href="index.php" class="hover:text-blue-600 transition-colors duration-200">
+                    <a href="facilities.php" class="hover:text-blue-600 transition-colors duration-200">
                         Facilities
                     </a>
                 </li>
@@ -447,11 +716,42 @@ for ($hour = $start_hour; $hour <= $end_hour; $hour++) {
                                 <i class="fas fa-tag mr-1"></i>
                                 <?php echo htmlspecialchars($facility['category_name']); ?>
                             </span>
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                                <i class="fas fa-check-circle mr-1"></i>
-                                Available
-                            </span>
+                            <?php if ($facility['is_currently_closed']): ?>
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
+                                    <i class="fas fa-times-circle mr-1"></i>
+                                    Closed for Event
+                                </span>
+                            <?php else: ?>
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
+                                    <i class="fas fa-check-circle mr-1"></i>
+                                    Available
+                                </span>
+                            <?php endif; ?>
                         </div>
+                        
+                        <!-- Closure Notice -->
+                        <?php if ($facility['is_currently_closed']): ?>
+                            <div class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                                <div class="flex items-start">
+                                    <i class="fas fa-exclamation-triangle text-red-500 mr-3 mt-1"></i>
+                                    <div>
+                                        <h4 class="text-lg font-semibold text-red-800 mb-2">Facility Closed for Event</h4>
+                                        <p class="text-red-700 mb-2">
+                                            <strong>Event:</strong> <?php echo htmlspecialchars($facility['closure_reason']); ?>
+                                        </p>
+                                        <?php if ($facility['closure_end_date']): ?>
+                                            <p class="text-red-700">
+                                                <strong>Reopens:</strong> <?php echo date('l, F j, Y', strtotime($facility['closure_end_date'])); ?>
+                                            </p>
+                                        <?php endif; ?>
+                                        <p class="text-sm text-red-600 mt-2">
+                                            <i class="fas fa-info-circle mr-1"></i>
+                                            This facility is temporarily unavailable for bookings due to a scheduled event.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     </div>
                     <!-- Pricing Options & Selector -->
                     <div class="space-y-4">
@@ -546,8 +846,13 @@ for ($hour = $start_hour; $hour <= $end_hour; $hour++) {
                             </div>
                             <div>
                                 <p class="text-sm text-gray-600 font-medium">Status</p>
-                                <p class="font-bold text-gray-900 text-lg">Available for booking</p>
-                                <p class="text-xs text-gray-500">Real-time availability</p>
+                                <?php if ($facility['is_currently_closed']): ?>
+                                    <p class="font-bold text-red-600 text-lg">Closed for Event</p>
+                                    <p class="text-xs text-red-500">Temporarily unavailable</p>
+                                <?php else: ?>
+                                    <p class="font-bold text-gray-900 text-lg">Available for booking</p>
+                                    <p class="text-xs text-gray-500">Real-time availability</p>
+                                <?php endif; ?>
                             </div>
                         </div>
                     </div>
@@ -578,7 +883,22 @@ for ($hour = $start_hour; $hour <= $end_hour; $hour++) {
                     <!-- Book Now Button -->
                     <?php if ($_SESSION['role'] !== 'admin'): ?>
                     <div class="pt-4">
-                        <?php if ($is_current_day_fully_booked): ?>
+                        <?php if ($facility['is_currently_closed']): ?>
+                            <div class="w-full bg-gradient-to-r from-red-400 to-red-500 text-white px-6 py-4 rounded-xl font-semibold inline-flex items-center justify-center shadow-lg cursor-not-allowed opacity-75">
+                                <i class="fas fa-calendar-times mr-3 text-lg"></i>
+                                Closed for Event
+                            </div>
+                            <div class="mt-3 text-center">
+                                <p class="text-sm text-gray-600">
+                                    <strong>Event:</strong> <?php echo htmlspecialchars($facility['closure_reason']); ?>
+                                </p>
+                                <?php if ($facility['closure_end_date']): ?>
+                                    <p class="text-sm text-gray-600">
+                                        <strong>Reopens:</strong> <?php echo date('l, F j, Y', strtotime($facility['closure_end_date'])); ?>
+                                    </p>
+                                <?php endif; ?>
+                            </div>
+                        <?php elseif ($is_current_day_fully_booked): ?>
                             <div class="w-full bg-gradient-to-r from-gray-400 to-gray-500 text-white px-6 py-4 rounded-xl font-semibold inline-flex items-center justify-center shadow-lg cursor-not-allowed opacity-75">
                                 <i class="fas fa-calendar-times mr-3 text-lg"></i>
                                 Today is Fully Booked
@@ -1155,13 +1475,14 @@ for ($hour = $start_hour; $hour <= $end_hour; $hour++) {
                                 <li>• Quick booking options available for common durations</li>
                             </ul>
                         </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
     <!-- Floating Action Button -->
-    <?php if ($_SESSION['role'] !== 'admin'): ?>
+    <?php if ($_SESSION['role'] !== 'admin' && !$facility['is_currently_closed']): ?>
     <div class="floating-action">
         <a href="reservation.php?facility_id=<?php echo $facility['id']; ?>" 
            class="w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center transform hover:scale-110">
@@ -1170,21 +1491,45 @@ for ($hour = $start_hour; $hour <= $end_hour; $hour++) {
     </div>
     <?php endif; ?>
     <script>
-        // Mobile menu functionality
+        // Sidebar toggle functionality
         document.addEventListener('DOMContentLoaded', function() {
-            const mobileMenuButton = document.getElementById('mobile-menu-button');
-            const mobileMenu = document.getElementById('mobile-menu');
-            if (mobileMenuButton && mobileMenu) {
-                mobileMenuButton.addEventListener('click', function() {
-                    mobileMenu.classList.toggle('hidden');
-                });
-                // Close mobile menu when clicking outside
-                document.addEventListener('click', function(event) {
-                    if (!mobileMenuButton.contains(event.target) && !mobileMenu.contains(event.target)) {
-                        mobileMenu.classList.add('hidden');
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            
+            function toggleSidebar() {
+                sidebar.classList.toggle('active');
+                sidebarOverlay.classList.toggle('active');
+                
+                // Change icon
+                const icon = sidebarToggle.querySelector('i');
+                if (sidebar.classList.contains('active')) {
+                    icon.className = 'fas fa-times';
+                } else {
+                    icon.className = 'fas fa-bars';
+                }
+            }
+            
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', toggleSidebar);
+            }
+            
+            if (sidebarOverlay) {
+                sidebarOverlay.addEventListener('click', toggleSidebar);
+            }
+            
+            // Close sidebar on navigation (mobile)
+            const sidebarLinks = document.querySelectorAll('.sidebar-nav-item');
+            sidebarLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    if (window.innerWidth <= 1024) {
+                        sidebar.classList.remove('active');
+                        sidebarOverlay.classList.remove('active');
+                        const icon = sidebarToggle.querySelector('i');
+                        icon.className = 'fas fa-bars';
                     }
                 });
-            }
+            });
             // Add smooth scrolling to all links
             document.querySelectorAll('a[href^="#"]').forEach(anchor => {
                 anchor.addEventListener('click', function (e) {
@@ -1307,6 +1652,11 @@ for ($hour = $start_hour; $hour <= $end_hour; $hour++) {
                 });
             });
         });
+        
+        // Logout confirmation function
+        function confirmLogout() {
+            return confirm('⚠️ Are you sure you want to logout?\n\nThis will end your current session and you will need to login again.');
+        }
     </script>
 </body>
 </html>
