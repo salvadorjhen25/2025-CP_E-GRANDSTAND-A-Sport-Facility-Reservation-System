@@ -72,8 +72,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = "Cannot book a time slot that has completely passed. Current time: {$current_time_formatted}, Booking ends at: " . date('g:i A', $end_timestamp);
         }
         
-        // Debug logging (remove in production)
-        error_log("Time Validation Debug - Current: " . date('Y-m-d H:i:s', $current_timestamp) . ", Start: " . date('Y-m-d H:i:s', $start_timestamp) . ", End: " . date('Y-m-d H:i:s', $end_timestamp) . ", Buffer: " . date('Y-m-d H:i:s', $buffer_timestamp));
     }
     
     // Check if booking time is within operating hours
@@ -1014,6 +1012,369 @@ $existing_reservations = $stmt->fetchAll();
                 display: block !important;
             }
         }
+        
+        /* Modern Sidebar Navigation */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 280px;
+            background: linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%);
+            z-index: 1000;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .sidebar.collapsed {
+            transform: translateX(-100%);
+        }
+        
+        .sidebar-header {
+            padding: 2rem 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .sidebar-logo {
+            width: 48px;
+            height: 48px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .sidebar-title {
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
+            font-size: 1.25rem;
+            color: white;
+            line-height: 1.2;
+        }
+        
+        .sidebar-user {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+        }
+        
+        .sidebar-user-avatar {
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1rem;
+        }
+        
+        .sidebar-user-info {
+            flex: 1;
+            min-width: 0;
+        }
+        
+        .sidebar-user-name {
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: white;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .sidebar-user-role {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .sidebar-nav {
+            flex: 1;
+            padding: 1.5rem 1rem;
+            overflow-y: auto;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .sidebar-nav::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+        
+        .sidebar-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.875rem 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 12px;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .sidebar-nav-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 3px;
+            background: white;
+            transform: scaleY(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar-nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            transform: translateX(4px);
+        }
+        
+        .sidebar-nav-item:hover::before {
+            transform: scaleY(1);
+        }
+        
+        .sidebar-nav-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            font-weight: 600;
+        }
+        
+        .sidebar-nav-item.active::before {
+            transform: scaleY(1);
+        }
+        
+        .sidebar-nav-item i {
+            font-size: 1.1rem;
+            width: 24px;
+            text-align: center;
+        }
+        
+        .sidebar-nav-item.logout {
+            background: rgba(220, 38, 38, 0.15);
+            color: #fca5a5;
+            margin-top: auto;
+        }
+        
+        .sidebar-nav-item.logout:hover {
+            background: rgba(220, 38, 38, 0.3);
+            color: #fecaca;
+        }
+        
+        .sidebar-footer {
+            padding: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Mobile Toggle Button */
+        .sidebar-toggle {
+            position: fixed;
+            top: 1.25rem;
+            left: 1.25rem;
+            z-index: 1001;
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border: none;
+            border-radius: 12px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-toggle:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5);
+        }
+        
+        .sidebar-toggle i {
+            color: white;
+            font-size: 1.25rem;
+        }
+        
+        /* Sidebar Overlay */
+        .sidebar-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        /* Main Content Wrapper */
+        .main-wrapper {
+            margin-left: 280px;
+            min-height: 100vh;
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            
+            .sidebar-toggle {
+                display: flex;
+            }
+            
+            .main-wrapper {
+                margin-left: 0;
+                padding-top: 80px;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 260px;
+            }
+            
+            .sidebar-toggle {
+                top: 1rem;
+                left: 1rem;
+            }
+        }
+        
+        /* Facilities Modal Positioning */
+        #facilities-modal {
+          
+            margin-left: 120px;
+        }
+
+        #facilities-modal .flex {
+          
+            justify-content: center;
+        }
+        
+        @media (max-width: 1024px) {
+            #facilities-modal .flex {
+                margin-left: 0;
+                justify-content: center;
+                padding: 1rem;
+            }
+            
+            #facilities-modal .bg-white {
+                max-width: 95vw;
+                max-height: 95vh;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            #facilities-modal .flex {
+                padding: 0.5rem;
+            }
+            
+            #facilities-modal .bg-white {
+                max-width: 98vw;
+                max-height: 98vh;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            #facilities-modal .flex {
+                padding: 0.25rem;
+            }
+            
+            #facilities-modal .bg-white {
+                max-width: 100vw;
+                max-height: 100vh;
+                border-radius: 0;
+            }
+        }
+        
+        /* Compact facility cards for modal */
+        .facility-card {
+            min-height: 280px;
+            max-height: 320px;
+        }
+        
+        .facility-card .h-32 {
+            height: 8rem;
+        }
+        
+        /* Compact content padding */
+        .facility-card .p-3 {
+            padding: 0.75rem;
+        }
+        
+        /* Compact card spacing */
+        .facility-card .space-y-1 > * {
+            margin-bottom: 0.25rem;
+        }
+        
+        .facility-card .space-y-1 > *:last-child {
+            margin-bottom: 0;
+        }
+        
+        /* Compact text sizing */
+        .facility-card h3 {
+            font-size: 1rem;
+            line-height: 1.125rem;
+        }
+        
+        .facility-card p {
+            font-size: 0.75rem;
+            line-height: 1rem;
+        }
+        
+        /* Line clamp utilities */
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+        
+        .line-clamp-3 {
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-blue-50 via-white to-purple-50 min-h-screen">
@@ -1025,68 +1386,73 @@ $existing_reservations = $stmt->fetchAll();
         </div>
     </div>
 
-    <!-- Enhanced Navigation -->
-   <!-- Enhanced Navigation -->
-    <nav class="nav-bar">
-        <div class="nav-container">
-            <div class="nav-brand">
-                <div class="nav-logo">
-                    <i class="fas fa-building text-white"></i>
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    
+    <!-- Mobile Toggle Button -->
+    <button class="sidebar-toggle" id="sidebarToggle">
+        <i class="fas fa-bars"></i>
+    </button>
+    
+    <!-- Modern Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+        <!-- Sidebar Header -->
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <div class="sidebar-logo">
+                    <i class="fas fa-building text-white text-xl"></i>
                 </div>
-                <h1 class="nav-title"><?php echo SITE_NAME; ?></h1>
+                <h1 class="sidebar-title"><?php echo SITE_NAME; ?></h1>
             </div>
             
-            <!-- Desktop Navigation -->
-            <div class="nav-menu">
-                <div class="nav-user-info">
-                    <i class="fas fa-user nav-user-icon"></i>
-                    <span class="nav-user-name">Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?></span>
+            <!-- User Info -->
+            <div class="sidebar-user">
+                <div class="sidebar-user-avatar">
+                    <i class="fas fa-user"></i>
                 </div>
-                <a href="index.php" class="nav-btn">
+                <div class="sidebar-user-info">
+                    <div class="sidebar-user-name"><?php echo htmlspecialchars($_SESSION['full_name']); ?></div>
+                    <div class="sidebar-user-role">User</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar-nav">
+            <a href="index.php" class="sidebar-nav-item">
+                <i class="fas fa-home"></i>
                     <span>Home</span>
                 </a>
-                <a href="facilities.php" class="nav-btn">
+            <a href="facilities.php" class="sidebar-nav-item">
+                <i class="fas fa-building"></i>
                     <span>Facilities</span>
                 </a>
-                <a href="my_reservations.php" class="nav-btn">
+            <a href="my_reservations.php" class="sidebar-nav-item">
+                <i class="fas fa-calendar-check"></i>
                             <span>My Reservations</span>
                         </a>
-                <a href="auth/logout.php" class="nav-btn logout-btn" onclick="return confirmLogout()">
-                    <span>Logout</span>
-                </a>
-            </div>
-            
-            <!-- Enhanced Mobile menu button -->
-            <div class="nav-menu-mobile">
-                <button id="mobile-menu-button" class="mobile-menu-btn" aria-label="Toggle mobile menu">
-                    <span class="hamburger-line"></span>
-                    <span class="hamburger-line"></span>
-                    <span class="hamburger-line"></span>
-                </button>
-            </div>
-        </div>
-            <!-- Mobile Navigation -->
-        <div id="mobile-menu" class="hidden mobile-menu">
-            <div class="container" style="padding: 1rem 0;">
-                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                    <div style="color: white; padding: 0.75rem; background: rgba(255, 255, 255, 0.1); border-radius: 8px; font-weight: 500; border: 1px solid rgba(255, 255, 255, 0.2);">
-                        <i class="fas fa-user" style="margin-right: 0.5rem;"></i>Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?>
-                    </div>
-                    <a href="index.php" class="nav-btn" style="display: block; text-align: center;">
-                        Home
-                    </a>
-                    <a href="facilities.php" class="nav-btn" style="display: block; text-align: center;">
-                        Facilities
-                    </a>
-                    <a href="auth/logout.php" class="nav-btn logout-btn" style="display: block; text-align: center;" onclick="return confirmLogout()">
-                        Logout
+            <a href="archived_reservations.php" class="sidebar-nav-item">
+                <i class="fas fa-archive"></i>
+                <span>Archived</span>
+            </a>
+            <a href="usage_history.php" class="sidebar-nav-item">
+                <i class="fas fa-history"></i>
+                <span>Usage History</span>
+            </a>
+        </nav>
+        
+        <!-- Sidebar Footer -->
+        <div class="sidebar-footer">
+            <a href="auth/logout.php" class="sidebar-nav-item logout" onclick="return confirmLogout()">
+                <i class="fas fa-sign-out-alt"></i>
+                <span>Logout</span>
                     </a>
                 </div>
-            </div>
-        </div>
-    </nav>
+    </aside>
 
-    <div class="max-w-7xl mx-auto px-4 py-8">
+    <!-- Main Content Wrapper -->
+    <div class="main-wrapper">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <!-- Enhanced Breadcrumb Navigation -->
         <nav class="mb-8 animate-fade-in">
             <ol class="flex items-center space-x-2 text-sm text-gray-600">
@@ -1908,10 +2274,114 @@ $existing_reservations = $stmt->fetchAll();
     <!-- Floating Action Button -->
     <div class="floating-action">
         <a href="my_reservations.php" 
-           class="w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center transform hover:scale-110">
+           class="w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center transform hover:scale-110"
+           title="View My Reservations">
             <i class="fas fa-calendar-alt text-xl"></i>
         </a>
     </div>
+    
+    <!-- Add More Floating Button (hidden by default) -->
+    <div id="add-more-floating-btn" class="fixed bottom-24 right-6 z-40 hidden">
+        <div class="flex flex-col space-y-3">
+            <!-- Same Facility Button -->
+            <button onclick="addMoreReservation('same')" 
+                    class="w-14 h-14 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center transform hover:scale-110"
+                    title="Add More - Same Facility">
+                <i class="fas fa-calendar-plus text-lg"></i>
+            </button>
+            
+            <!-- Different Facility Button -->
+            <button onclick="showFacilitiesModal()" 
+                    class="w-14 h-14 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center transform hover:scale-110"
+                    title="Add More - Different Facility">
+                <i class="fas fa-building text-lg"></i>
+            </button>
+        </div>
+    </div>
+    
+    <!-- Facilities Modal -->
+    <div id="facilities-modal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden backdrop-blur-sm">
+        <div class="flex items-center justify-center min-h-screen p-2">
+            <div class="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden transform transition-all duration-300 scale-95 opacity-0 flex flex-col" id="facilities-modal-content">
+                <!-- Modal Header -->
+                <div class="p-4 border-b bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center mr-3">
+                                <i class="fas fa-building text-lg"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-xl font-bold">Choose a Facility</h2>
+                                <p class="text-blue-100 text-xs">Select a facility to create your next reservation</p>
+                            </div>
+                        </div>
+                        <button onclick="closeFacilitiesModal()" class="text-white/80 hover:text-white text-2xl transition-colors duration-200">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Search and Filter Section -->
+                <div class="p-4 bg-gray-50 border-b">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        <!-- Search Input -->
+                        <div class="md:col-span-2">
+                            <label for="facility-search" class="block text-xs font-medium text-gray-700 mb-1">
+                                <i class="fas fa-search mr-1"></i>Search Facilities
+                            </label>
+                            <div class="relative">
+                                <input type="text" 
+                                       id="facility-search" 
+                                       placeholder="Search by facility name or description..."
+                                       class="w-full px-3 py-2 pl-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-black">
+                                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <i class="fas fa-search text-gray-400 text-sm"></i>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Category Filter -->
+                        <div>
+                            <label for="facility-category" class="block text-xs font-medium text-gray-700 mb-1">
+                                <i class="fas fa-filter mr-1"></i>Category
+                            </label>
+                            <select id="facility-category" 
+                                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm text-black">
+                                <option value="">All Categories</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Facilities Grid -->
+                <div class="flex-1 overflow-y-auto p-4">
+                    <div id="facilities-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        <!-- Facilities will be loaded here -->
+                        <div class="text-center py-12">
+                            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                            <p class="text-gray-600">Loading facilities...</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Modal Footer -->
+                <div class="p-4 border-t bg-gray-50">
+                    <div class="flex justify-between items-center">
+                        <div class="text-xs text-gray-600">
+                            <span id="facilities-count">0</span> facilities found
+                        </div>
+                        <div class="space-x-2">
+                            <button onclick="closeFacilitiesModal()" 
+                                    class="px-4 py-1.5 bg-gray-500 hover:bg-gray-600 text-white rounded-md transition duration-200 text-sm">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div> <!-- Close main-wrapper -->
     <script>
         // Hide loading overlay when page is ready
         window.addEventListener('load', function() {
@@ -1922,6 +2392,61 @@ $existing_reservations = $stmt->fetchAll();
                     loadingOverlay.style.display = 'none';
                 }, 300);
             }
+        });
+        
+        // Sidebar toggle functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            
+            function toggleSidebar() {
+                sidebar.classList.toggle('active');
+                sidebarOverlay.classList.toggle('active');
+                
+                // Change icon
+                const icon = sidebarToggle.querySelector('i');
+                if (sidebar.classList.contains('active')) {
+                    icon.className = 'fas fa-times';
+                } else {
+                    icon.className = 'fas fa-bars';
+                }
+            }
+            
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', toggleSidebar);
+            }
+            
+            if (sidebarOverlay) {
+                sidebarOverlay.addEventListener('click', toggleSidebar);
+            }
+            
+            // Close sidebar on navigation (mobile)
+            const sidebarLinks = document.querySelectorAll('.sidebar-nav-item');
+            sidebarLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    if (window.innerWidth <= 1024) {
+                        sidebar.classList.remove('active');
+                        sidebarOverlay.classList.remove('active');
+                        const icon = sidebarToggle.querySelector('i');
+                        icon.className = 'fas fa-bars';
+                    }
+                });
+            });
+            
+            // Add smooth scrolling to all links
+            document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+                anchor.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    const target = document.querySelector(this.getAttribute('href'));
+                    if (target) {
+                        target.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
+                });
+            });
         });
         
         // Cache busting comment - v2.7
@@ -2062,7 +2587,6 @@ $existing_reservations = $stmt->fetchAll();
                         
                         // Render day details for popup
                         const dayDetailsEl = document.getElementById('dayDetails');
-                        console.log('Day clicked, calling renderDayDetailsForPopup with:', ymd, dayDetailsEl);
                         if (typeof renderDayDetailsForPopup === 'function') { 
                             renderDayDetailsForPopup(ymd, dayDetailsEl); 
                         } else {
@@ -3510,7 +4034,6 @@ $existing_reservations = $stmt->fetchAll();
                         
                         // Load day details for popup
                         const dayDetailsEl = document.getElementById('dayDetails');
-                        console.log('Day clicked in renderSimpleCalendar, calling renderDayDetailsForPopup with:', ymd, dayDetailsEl);
                         if (typeof renderDayDetailsForPopup === 'function') {
                             renderDayDetailsForPopup(ymd, dayDetailsEl);
                         } else {
@@ -3526,7 +4049,6 @@ $existing_reservations = $stmt->fetchAll();
         // Function to update cost preview based on current inputs
         function updateCostPreview() {
             try {
-                console.log('updateCostPreview called');
                 
                 if (!costPreview) {
                     console.error('costPreview element not found');
@@ -3537,15 +4059,8 @@ $existing_reservations = $stmt->fetchAll();
                 const startTime = startTimeInputField.value;
                 const endTime = endTimeInputField.value;
                 
-                console.log('Cost preview inputs:', {
-                    selectedDate,
-                    startTime,
-                    endTime,
-                    costPreviewExists: !!costPreview
-                });
                 
                 if (!selectedDate || !startTime || !endTime) {
-                    console.log('Missing inputs, hiding cost preview');
                     costPreview.classList.add('hidden');
                     return;
                 }
@@ -3557,7 +4072,6 @@ $existing_reservations = $stmt->fetchAll();
                 }
                 
                 const bookingType = bookingTypeElement.value;
-                console.log('Booking type:', bookingType);
                 
                 // For hourly booking, use the actual selected times
                 if (bookingType === 'hourly') {
@@ -3575,19 +4089,12 @@ $existing_reservations = $stmt->fetchAll();
                     }
                     
                     const durationHours = (endDateTime - startDateTime) / (1000 * 60 * 60);
-                    console.log('Duration hours:', durationHours);
                     
                     // Facility cost uses facility rate; package is flat add-on if selected
                     const facilityCost = durationHours * (facilityHourlyRate || 0);
                     const packageCost = selectedPackageFlatCost || 0;
                     const totalCost = facilityCost + packageCost;
                     
-                    console.log('Cost calculation:', {
-                        facilityCost,
-                        packageCost,
-                        totalCost,
-                        facilityHourlyRate
-                    });
                     
                     // Update display elements
                     if (bookingTypeDisplay) bookingTypeDisplay.textContent = 'Hourly';
@@ -3602,7 +4109,6 @@ $existing_reservations = $stmt->fetchAll();
                     if (packageCostDisplay) packageCostDisplay.textContent = selectedPricingOptionName ? `₱${packageCost.toFixed(2)}` : '₱0.00';
                 }
                 
-                console.log('Showing cost preview');
                 costPreview.classList.remove('hidden');
             } catch (error) {
                 console.error('Error in updateCostPreview:', error);
@@ -3719,7 +4225,6 @@ $existing_reservations = $stmt->fetchAll();
              startTimeInputField = document.getElementById('start_time_input');
              endTimeInputField = document.getElementById('end_time_input');
              
-             // Debug: Check if elements are found
              if (!bookingDateInput) {
                  console.error('bookingDateInput element not found');
              }
@@ -3742,12 +4247,9 @@ $existing_reservations = $stmt->fetchAll();
              // Existing reservations data
              existingReservations = <?php echo json_encode($existing_reservations ?? []); ?>;
              
-             // Debug: Log existing reservations
-             console.log('Existing reservations loaded:', existingReservations.length, existingReservations);
              
              // Global function to render day details for popup
              window.renderDayDetailsForPopup = function(ymd, container) {
-                 console.log('renderDayDetailsForPopup called with:', ymd, container);
                  
                  if (!container) {
                      console.error('Container not provided to renderDayDetailsForPopup');
@@ -3765,7 +4267,6 @@ $existing_reservations = $stmt->fetchAll();
                  // Get reservations for this date
                  const reservations = (existingReservations || []).filter(r => r.start_time && r.start_time.startsWith(ymd));
                  
-                 console.log('Reservations found:', reservations.length, reservations);
                  
                  // Current status section
                  const statusSection = document.createElement('div');
@@ -4081,7 +4582,6 @@ $existing_reservations = $stmt->fetchAll();
                  
                  // Fallback: Ensure content is always shown
                  if (container.children.length === 0) {
-                     console.log('No content added, showing fallback');
                      const fallbackSection = document.createElement('div');
                      fallbackSection.className = 'text-center py-6 text-gray-500 bg-white rounded-lg border border-gray-200 shadow-sm';
                      fallbackSection.innerHTML = `
@@ -4092,7 +4592,6 @@ $existing_reservations = $stmt->fetchAll();
                      container.appendChild(fallbackSection);
                  }
                  
-                 console.log('renderDayDetailsForPopup completed, container has', container.children.length, 'children');
              };
              
              // Initialize pricing options
@@ -4192,7 +4691,6 @@ $existing_reservations = $stmt->fetchAll();
                                 <p class="text-xs">See reservations, availability, and ongoing usage</p>
                             </div>
                         `;
-                        console.log('Initial content set in dayDetails');
                     }
                     
                     // Animate modal in
@@ -4398,36 +4896,22 @@ $existing_reservations = $stmt->fetchAll();
             updateCurrentTime();
             setInterval(updateCurrentTime, 1000);
             
-            // Debug: Log when elements are found
-            console.log('Calendar modal elements:', {
-                calendarModal: !!document.getElementById('calendarModal'),
-                openCalBtn: !!document.getElementById('openCalendarModal'),
-                monthlyCalendar: !!document.getElementById('monthlyCalendar'),
-                costPreview: !!document.getElementById('costPreview'),
-                bookingDateInput: !!document.getElementById('booking_date'),
-                startTimeInputField: !!document.getElementById('start_time_input'),
-                endTimeInputField: !!document.getElementById('end_time_input')
-            });
             
             // Add event listeners to time inputs to trigger cost preview update
             if (startTimeInputField) {
                 startTimeInputField.addEventListener('change', updateCostPreview);
                 startTimeInputField.addEventListener('input', updateCostPreview);
-                console.log('Added event listeners to startTimeInputField');
             }
             if (endTimeInputField) {
                 endTimeInputField.addEventListener('change', updateCostPreview);
                 endTimeInputField.addEventListener('input', updateCostPreview);
-                console.log('Added event listeners to endTimeInputField');
             }
             if (bookingDateInput) {
                 bookingDateInput.addEventListener('change', updateCostPreview);
-                console.log('Added event listener to bookingDateInput');
             }
             
             // Test cost preview immediately
             setTimeout(() => {
-                console.log('Testing cost preview...');
                 updateCostPreview();
             }, 1000);
         });
@@ -4435,17 +4919,41 @@ $existing_reservations = $stmt->fetchAll();
         function showSuccessModal(message) {
             const modalHtml = `
                 <div id="success-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-                    <div class="bg-white rounded-lg shadow-2xl max-w-md w-full transform transition-all duration-300 scale-95 opacity-0" id="success-modal-content">
+                    <div class="bg-white rounded-lg shadow-2xl max-w-lg w-full transform transition-all duration-300 scale-95 opacity-0" id="success-modal-content">
                         <div class="p-6 text-center">
                             <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                                 <i class="fas fa-check-circle text-green-500 text-2xl"></i>
                             </div>
-                            <h3 class="text-lg font-semibold text-gray-900 mb-2">Success!</h3>
+                            <h3 class="text-xl font-semibold text-gray-900 mb-2">Reservation Created Successfully!</h3>
                             <p class="text-gray-600 mb-6">${message}</p>
+                            
+                            <!-- Add More Options -->
+                            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 mb-6 border border-blue-200">
+                                <h4 class="text-lg font-semibold text-blue-800 mb-3 flex items-center justify-center">
+                                    <i class="fas fa-plus-circle mr-2"></i>
+                                    Want to add more reservations?
+                                </h4>
+                                <p class="text-sm text-blue-600 mb-4">You can quickly book another facility or create additional reservations for the same facility.</p>
+                                
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <button onclick="addMoreReservation('same')" class="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-3 rounded-lg transition duration-200 transform hover:scale-105 flex items-center justify-center">
+                                        <i class="fas fa-calendar-plus mr-2"></i>
+                                        <span class="text-sm font-medium">Same Facility</span>
+                                    </button>
+                                    <button onclick="showFacilitiesModal()" class="bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white px-4 py-3 rounded-lg transition duration-200 transform hover:scale-105 flex items-center justify-center">
+                                        <i class="fas fa-building mr-2"></i>
+                                        <span class="text-sm font-medium">Different Facility</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
                             <div class="flex justify-center space-x-3">
-                                <button onclick="closeSuccessModal()" class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition duration-200 transform hover:scale-105">
-                                    <i class="fas fa-check mr-2"></i>Got it!
+                                <button onclick="closeSuccessModal()" class="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg transition duration-200 transform hover:scale-105">
+                                    <i class="fas fa-check mr-2"></i>Done
                                 </button>
+                                <a href="my_reservations.php" class="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg transition duration-200 transform hover:scale-105 inline-flex items-center">
+                                    <i class="fas fa-calendar-check mr-2"></i>View My Reservations
+                                </a>
                             </div>
                         </div>
                     </div>
@@ -4489,6 +4997,447 @@ $existing_reservations = $stmt->fetchAll();
                     modal.remove();
                 }, 300);
             }
+        }
+        
+        // Add More Reservation Function
+        function addMoreReservation(type) {
+            closeSuccessModal();
+            
+            if (type === 'same') {
+                // Reset the form for the same facility
+                resetReservationForm();
+                
+                // Scroll to the form
+                const formElement = document.querySelector('.reservation-form');
+                if (formElement) {
+                    formElement.scrollIntoView({ 
+                        behavior: 'smooth', 
+                        block: 'start' 
+                    });
+                }
+                
+                // Show a brief notification
+                showNotification('Form reset for new reservation. Please select your new date and time.', 'info');
+                
+                // Show floating buttons for quick access
+                showAddMoreFloatingButtons();
+                
+            } else if (type === 'different') {
+                // Hide success modal and show facilities modal
+                closeSuccessModal();
+                setTimeout(() => {
+                    showFacilitiesModal();
+                }, 300);
+            }
+        }
+        
+        // Show Add More Floating Buttons
+        function showAddMoreFloatingButtons() {
+            const floatingBtn = document.getElementById('add-more-floating-btn');
+            if (floatingBtn) {
+                floatingBtn.classList.remove('hidden');
+                // Animate in
+                setTimeout(() => {
+                    floatingBtn.style.opacity = '0';
+                    floatingBtn.style.transform = 'translateY(20px)';
+                    floatingBtn.style.transition = 'all 0.3s ease';
+                    
+                    setTimeout(() => {
+                        floatingBtn.style.opacity = '1';
+                        floatingBtn.style.transform = 'translateY(0)';
+                    }, 100);
+                }, 500);
+            }
+        }
+        
+        // Hide Add More Floating Buttons
+        function hideAddMoreFloatingButtons() {
+            const floatingBtn = document.getElementById('add-more-floating-btn');
+            if (floatingBtn) {
+                floatingBtn.style.opacity = '0';
+                floatingBtn.style.transform = 'translateY(20px)';
+                setTimeout(() => {
+                    floatingBtn.classList.add('hidden');
+                }, 300);
+            }
+        }
+        
+        // Reset Reservation Form Function
+        function resetReservationForm() {
+            // Reset all form fields
+            const form = document.querySelector('form');
+            if (form) {
+                form.reset();
+            }
+            
+            // Reset date and time inputs
+            const bookingDateInput = document.getElementById('booking_date');
+            const startTimeInput = document.getElementById('start_time');
+            const endTimeInput = document.getElementById('end_time');
+            
+            if (bookingDateInput) bookingDateInput.value = '';
+            if (startTimeInput) startTimeInput.value = '';
+            if (endTimeInput) endTimeInput.value = '';
+            
+            // Reset display elements
+            const bookingDateDisplay = document.getElementById('booking_date_display');
+            if (bookingDateDisplay) bookingDateDisplay.textContent = 'Select a date';
+            
+            // Clear time slots
+            const timeSlotsContainer = document.getElementById('time-slots');
+            if (timeSlotsContainer) {
+                timeSlotsContainer.innerHTML = '<p class="text-gray-500 text-center py-8">Please select a date to view available time slots</p>';
+            }
+            
+            // Clear calendar selections
+            const selectedDateElement = document.querySelector('.calendar-day.selected');
+            if (selectedDateElement) {
+                selectedDateElement.classList.remove('selected');
+            }
+            
+            // Reset cost preview
+            const costPreview = document.getElementById('cost-preview');
+            if (costPreview) {
+                costPreview.innerHTML = '<p class="text-gray-500 text-center">Select date and time to see cost preview</p>';
+            }
+            
+            // Hide floating buttons
+            hideAddMoreFloatingButtons();
+            
+            // Regenerate calendar
+            if (typeof generateAvailabilityCalendar === 'function') {
+                generateAvailabilityCalendar();
+            }
+        }
+        
+        // Show Notification Function
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full`;
+            
+            const colors = {
+                'info': 'bg-blue-500 text-white',
+                'success': 'bg-green-500 text-white',
+                'warning': 'bg-yellow-500 text-white',
+                'error': 'bg-red-500 text-white'
+            };
+            
+            notification.className += ` ${colors[type] || colors.info}`;
+            notification.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas fa-${type === 'info' ? 'info-circle' : type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'times-circle'} mr-2"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // Animate in
+            setTimeout(() => {
+                notification.classList.remove('translate-x-full');
+            }, 100);
+            
+            // Auto remove after 4 seconds
+            setTimeout(() => {
+                notification.classList.add('translate-x-full');
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 300);
+            }, 4000);
+        }
+        
+        // Facilities Modal Functions
+        let facilitiesData = [];
+        let filteredFacilities = [];
+        
+        function showFacilitiesModal() {
+            // Hide the success modal first
+            closeSuccessModal();
+            
+            // Small delay to ensure smooth transition
+            setTimeout(() => {
+                const modal = document.getElementById('facilities-modal');
+                const modalContent = document.getElementById('facilities-modal-content');
+                
+                if (modal && modalContent) {
+                    modal.classList.remove('hidden');
+                    
+                    // Animate in
+                    setTimeout(() => {
+                        modalContent.classList.remove('scale-95', 'opacity-0');
+                        modalContent.classList.add('scale-100', 'opacity-100');
+                    }, 10);
+                    
+                    // Load facilities if not already loaded
+                    if (facilitiesData.length === 0) {
+                        loadFacilities();
+                    } else {
+                        displayFacilities(facilitiesData);
+                    }
+                }
+            }, 200);
+        }
+        
+        function closeFacilitiesModal() {
+            const modal = document.getElementById('facilities-modal');
+            const modalContent = document.getElementById('facilities-modal-content');
+            
+            if (modal && modalContent) {
+                modalContent.classList.add('scale-95', 'opacity-0');
+                modalContent.classList.remove('scale-100', 'opacity-100');
+                
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                }, 300);
+            }
+        }
+        
+        // Add keyboard navigation for modal
+        function setupModalKeyboardNavigation() {
+            document.addEventListener('keydown', function(e) {
+                const modal = document.getElementById('facilities-modal');
+                if (modal && !modal.classList.contains('hidden')) {
+                    if (e.key === 'Escape') {
+                        closeFacilitiesModal();
+                    }
+                }
+            });
+            
+            // Close modal on backdrop click
+            const modal = document.getElementById('facilities-modal');
+            if (modal) {
+                modal.addEventListener('click', function(e) {
+                    if (e.target === modal) {
+                        closeFacilitiesModal();
+                    }
+                });
+            }
+        }
+        
+        async function loadFacilities() {
+            const grid = document.getElementById('facilities-grid');
+            if (grid) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                        <p class="text-gray-600">Loading facilities...</p>
+                    </div>
+                `;
+            }
+            
+            try {
+                const response = await fetch('facilities_api.php');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    facilitiesData = data.facilities;
+                    filteredFacilities = [...facilitiesData];
+                    
+                    // Load categories
+                    loadCategories(data.categories || []);
+                    
+                    // Display facilities
+                    displayFacilities(filteredFacilities);
+                } else {
+                    throw new Error(data.message || 'Failed to load facilities');
+                }
+            } catch (error) {
+                console.error('Error loading facilities:', error);
+                showFacilitiesError('Failed to load facilities. Please check your connection and try again.');
+            }
+        }
+        
+        function loadCategories(categories) {
+            const categorySelect = document.getElementById('facility-category');
+            if (categorySelect) {
+                categorySelect.innerHTML = '<option value="">All Categories</option>';
+                categories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category.id;
+                    option.textContent = category.name;
+                    categorySelect.appendChild(option);
+                });
+            }
+        }
+        
+        function displayFacilities(facilities) {
+            const grid = document.getElementById('facilities-grid');
+            const count = document.getElementById('facilities-count');
+            
+            if (!grid) return;
+            
+            if (facilities.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-search text-gray-400 text-3xl"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2">No Facilities Found</h3>
+                        <p class="text-gray-600">Try adjusting your search criteria or filters.</p>
+                    </div>
+                `;
+            } else {
+                grid.innerHTML = facilities.map(facility => `
+                    <div class="facility-card bg-white rounded-lg shadow-md overflow-hidden border border-gray-200 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1" style="min-height: 280px; max-height: 320px;">
+                        <!-- Facility Image -->
+                        <div class="h-32 bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center relative overflow-hidden">
+                            ${facility.image_url && facility.image_url !== '' ? 
+                                `<img src="${facility.image_url}" alt="${facility.name}" class="w-full h-full object-cover">` :
+                                `<div class="text-center">
+                                    <i class="fas fa-building text-white text-5xl mb-2"></i>
+                                    <p class="text-white text-sm font-medium">No Image</p>
+                                </div>`
+                            }
+                            
+                            <!-- Price Badge -->
+                            <div class="absolute top-2 right-2">
+                                <div class="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-2 py-1 rounded-lg shadow-lg">
+                                    <div class="text-center">
+                                        <div class="text-xs font-bold">₱${parseFloat(facility.hourly_rate).toLocaleString()}</div>
+                                        <div class="text-xs font-medium opacity-90">/hr</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Status Badge -->
+                            <div class="absolute top-2 left-2">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-green-400 text-green-900">
+                                    <i class="fas fa-check mr-1"></i>
+                                    Available
+                                </span>
+                            </div>
+                            
+                            <!-- Category Badge -->
+                            <div class="absolute bottom-2 left-2">
+                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-bold bg-blue-400 text-blue-900">
+                                    <i class="fas fa-tag mr-1"></i>
+                                    ${facility.category_name || 'Uncategorized'}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- Facility Content -->
+                        <div class="p-3">
+                            <div class="mb-2">
+                                <h3 class="text-base font-bold text-gray-900 mb-1">${facility.name}</h3>
+                                <p class="text-gray-600 text-xs leading-relaxed mb-2">
+                                    ${facility.description ? facility.description.substring(0, 60) + (facility.description.length > 60 ? '...' : '') : 'No description available'}
+                                </p>
+                            </div>
+                            
+                            <!-- Facility Details -->
+                            <div class="space-y-1 mb-3">
+                                <div class="flex items-center justify-between py-0.5 px-1.5 bg-gray-50 rounded text-xs">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-users text-blue-500 mr-1 text-xs"></i>
+                                        <span class="text-gray-600">Capacity</span>
+                                    </div>
+                                    <span class="font-bold text-gray-900">${facility.capacity}</span>
+                                </div>
+                                
+                                <div class="flex items-center justify-between py-0.5 px-1.5 bg-gray-50 rounded text-xs">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-clock text-green-500 mr-1 text-xs"></i>
+                                        <span class="text-gray-600">Hours</span>
+                                    </div>
+                                    <span class="font-bold text-gray-900">8AM-10PM</span>
+                                </div>
+                                
+                                <div class="flex items-center justify-between py-0.5 px-1.5 bg-gradient-to-r from-green-50 to-emerald-50 rounded border border-green-200 text-xs">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-tag text-green-500 mr-1 text-xs"></i>
+                                        <span class="text-gray-600">Rate</span>
+                                    </div>
+                                    <span class="font-bold text-green-700">₱${parseFloat(facility.hourly_rate).toLocaleString()}/hr</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Action Button -->
+                            <button onclick="selectFacility(${facility.id})" 
+                                    class="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-2 py-1.5 rounded-md font-semibold transition-all duration-300 transform hover:scale-105 shadow-md text-xs">
+                                <i class="fas fa-calendar-plus mr-1"></i>Book Now
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            
+            if (count) {
+                count.textContent = facilities.length;
+            }
+        }
+        
+        function showFacilitiesError(message) {
+            const grid = document.getElementById('facilities-grid');
+            if (grid) {
+                grid.innerHTML = `
+                    <div class="col-span-full text-center py-12">
+                        <div class="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fas fa-exclamation-triangle text-red-500 text-3xl"></i>
+                        </div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2">Error Loading Facilities</h3>
+                        <p class="text-gray-600 mb-4">${message}</p>
+                        <button onclick="loadFacilities()" class="bg-blue-500 hover:bg-blue-600 text-white px-6 py-2 rounded-lg transition duration-200">
+                            <i class="fas fa-refresh mr-2"></i>Try Again
+                        </button>
+                    </div>
+                `;
+            }
+        }
+        
+        function selectFacility(facilityId) {
+            // Close the modal
+            closeFacilitiesModal();
+            
+            // Redirect to reservation page with the selected facility
+            window.location.href = `reservation.php?facility_id=${facilityId}`;
+        }
+        
+        // Search and Filter Functionality
+        function setupFacilitiesFilters() {
+            const searchInput = document.getElementById('facility-search');
+            const categorySelect = document.getElementById('facility-category');
+            
+            if (searchInput) {
+                searchInput.addEventListener('input', filterFacilities);
+            }
+            
+            if (categorySelect) {
+                categorySelect.addEventListener('change', filterFacilities);
+            }
+        }
+        
+        function filterFacilities() {
+            const searchTerm = document.getElementById('facility-search')?.value.toLowerCase() || '';
+            const categoryId = document.getElementById('facility-category')?.value || '';
+            
+            filteredFacilities = facilitiesData.filter(facility => {
+                const matchesSearch = facility.name.toLowerCase().includes(searchTerm) || 
+                                    (facility.description && facility.description.toLowerCase().includes(searchTerm));
+                const matchesCategory = !categoryId || facility.category_id == categoryId;
+                
+                return matchesSearch && matchesCategory;
+            });
+            
+            displayFacilities(filteredFacilities);
+        }
+        
+        // Initialize filters when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            setupFacilitiesFilters();
+            setupModalKeyboardNavigation();
+        });
+        
+        // Logout confirmation function
+        function confirmLogout() {
+            return confirm('⚠️ Are you sure you want to logout?\n\nThis will end your current session and you will need to login again.');
         }
     </script>
 </body>
