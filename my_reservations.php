@@ -72,13 +72,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
     }
 }
-// Get user's reservations
+// Get user's active reservations (exclude expired and cancelled)
 $stmt = $pdo->prepare("
-    SELECT r.*, f.name as facility_name, f.hourly_rate, c.name as category_name
+    SELECT r.*, f.name as facility_name, f.hourly_rate, c.name as category_name,
+           r.or_number, r.verified_by_staff_name, r.payment_verified_at,
+           admin.full_name as verified_by_admin
     FROM reservations r
     JOIN facilities f ON r.facility_id = f.id
     LEFT JOIN categories c ON f.category_id = c.id
-    WHERE r.user_id = ?
+    LEFT JOIN users admin ON r.payment_verified_by = admin.id
+    WHERE r.user_id = ? AND r.status NOT IN ('expired', 'cancelled')
     ORDER BY r.created_at DESC
 ");
 $stmt->execute([$_SESSION['user_id']]);
@@ -93,7 +96,7 @@ $paymentManager->checkExpiredPayments();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My Reservations - <?php echo SITE_NAME; ?></title>
+    <title>Active Reservations - <?php echo SITE_NAME; ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="assets/css/enhanced-ui.css">
@@ -138,111 +141,275 @@ $paymentManager->checkExpiredPayments();
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
         
-        /* Enhanced Navigation */
-        .nav-bar {
-            background: #1e40af !important;
-            border-bottom: 1px solid #1d4ed8 !important;
-            position: sticky !important;
-            top: 0 !important;
-            z-index: 100 !important;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+        /* Modern Sidebar Navigation */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: 280px;
+            background: linear-gradient(180deg, #1e40af 0%, #1e3a8a 100%);
+            z-index: 1000;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
+            display: flex;
+            flex-direction: column;
         }
         
-        .nav-container {
-            max-width: 1200px !important;
-            margin: 0 auto !important;
-            padding: 0 2rem !important;
-            display: flex !important;
-            justify-content: space-between !important;
-            align-items: center !important;
-            height: 80px !important;
+        .sidebar.collapsed {
+            transform: translateX(-100%);
         }
         
-        .nav-title {
-            font-family: 'Inter', sans-serif !important;
-            font-weight: 800 !important;
-            color: white !important;
-            font-size: 1.5rem !important;
+        .sidebar-header {
+            padding: 2rem 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
         
-        .nav-user-name {
-            font-family: 'Inter', sans-serif !important;
-            font-weight: 600 !important;
-            color: white !important;
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
         }
         
-        /* Unified Navigation Buttons */
-        .nav-btn {
-            background: rgba(255, 255, 255, 0.15) !important;
-            color: white !important;
-            border: 1px solid rgba(255, 255, 255, 0.2) !important;
-            padding: 0.75rem 1.5rem !important;
-            border-radius: 0.5rem !important;
-            font-family: 'Inter', sans-serif !important;
-            font-weight: 600 !important;
-            font-size: 0.875rem !important;
-            text-decoration: none !important;
-            display: inline-flex !important;
-            align-items: center !important;
-            gap: 0.5rem !important;
-            transition: all 0.3s ease !important;
-            min-width: 140px !important;
-            justify-content: center !important;
-            backdrop-filter: blur(10px) !important;
+        .sidebar-logo {
+            width: 48px;
+            height: 48px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            backdrop-filter: blur(10px);
         }
         
-        .nav-btn:hover {
-            background: rgba(255, 255, 255, 0.25) !important;
-            transform: translateY(-2px) !important;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+        .sidebar-title {
+            font-family: 'Inter', sans-serif;
+            font-weight: 800;
+            font-size: 1.25rem;
+            color: white;
+            line-height: 1.2;
         }
         
-        .nav-btn.logout-btn {
-            background: rgba(220, 38, 38, 0.8) !important;
-            border: 1px solid rgba(220, 38, 38, 0.9) !important;
+        .sidebar-user {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
         }
         
-        .nav-btn.logout-btn:hover {
-            background: rgba(220, 38, 38, 1) !important;
-            transform: translateY(-2px) !important;
-            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3) !important;
+        .sidebar-user-avatar {
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1rem;
         }
         
-        .nav-user-info {
-            display: flex !important;
-            align-items: center !important;
-            gap: 0.75rem !important;
-            background: rgba(255, 255, 255, 0.1) !important;
-            padding: 0.75rem 1rem !important;
-            border-radius: 0.5rem !important;
-            border: 1px solid rgba(255, 255, 255, 0.2) !important;
-            backdrop-filter: blur(10px) !important;
+        .sidebar-user-info {
+            flex: 1;
+            min-width: 0;
         }
         
-        .nav-user-icon {
-            color: white !important;
-            font-size: 1rem !important;
+        .sidebar-user-name {
+            font-family: 'Inter', sans-serif;
+            font-weight: 600;
+            font-size: 0.875rem;
+            color: white;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         
-        /* Navigation Menu Visibility */
-        .nav-menu {
-            display: flex !important;
-            align-items: center !important;
-            gap: 1rem !important;
+        .sidebar-user-role {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.7);
         }
         
-        .nav-menu-mobile {
-            display: none !important;
+        .sidebar-nav {
+            flex: 1;
+            padding: 1.5rem 1rem;
+            overflow-y: auto;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .sidebar-nav::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .sidebar-nav::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+        
+        .sidebar-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.875rem 1rem;
+            margin-bottom: 0.5rem;
+            border-radius: 12px;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            font-family: 'Inter', sans-serif;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .sidebar-nav-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 3px;
+            background: white;
+            transform: scaleY(0);
+            transition: transform 0.3s ease;
+        }
+        
+        .sidebar-nav-item:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            transform: translateX(4px);
+        }
+        
+        .sidebar-nav-item:hover::before {
+            transform: scaleY(1);
+        }
+        
+        .sidebar-nav-item.active {
+            background: rgba(255, 255, 255, 0.15);
+            color: white;
+            font-weight: 600;
+        }
+        
+        .sidebar-nav-item.active::before {
+            transform: scaleY(1);
+        }
+        
+        .sidebar-nav-item i {
+            font-size: 1.1rem;
+            width: 24px;
+            text-align: center;
+        }
+        
+        .sidebar-nav-item.logout {
+            background: rgba(220, 38, 38, 0.15);
+            color: #fca5a5;
+            margin-top: auto;
+        }
+        
+        .sidebar-nav-item.logout:hover {
+            background: rgba(220, 38, 38, 0.3);
+            color: #fecaca;
+        }
+        
+        .sidebar-footer {
+            padding: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        /* Mobile Toggle Button */
+        .sidebar-toggle {
+            position: fixed;
+            top: 1.25rem;
+            left: 1.25rem;
+            z-index: 1001;
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            border: none;
+            border-radius: 12px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-toggle:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5);
+        }
+        
+        .sidebar-toggle i {
+            color: white;
+            font-size: 1.25rem;
+        }
+        
+        /* Sidebar Overlay */
+        .sidebar-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .sidebar-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        /* Main Content Wrapper */
+        .main-wrapper {
+            margin-left: 280px;
+            min-height: 100vh;
+            transition: margin-left 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.active {
+                transform: translateX(0);
+            }
+            
+            .sidebar-toggle {
+                display: flex;
+            }
+            
+            .main-wrapper {
+                margin-left: 0;
+                padding-top: 80px;
+            }
         }
         
         @media (max-width: 768px) {
-            .nav-menu {
-                display: none !important;
+            .sidebar {
+                width: 260px;
             }
             
-            .nav-menu-mobile {
-                display: block !important;
+            .sidebar-toggle {
+                top: 1rem;
+                left: 1rem;
             }
+        }
+        
+        /* Adjust loading overlay z-index */
+        #loading-overlay {
+            z-index: 9999 !important;
         }
         
         @keyframes fadeIn {
@@ -300,6 +467,7 @@ $paymentManager->checkExpiredPayments();
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             position: relative;
             overflow: hidden;
+            border: 1px solid rgba(0, 0, 0, 0.06);
         }
         .reservation-card::before {
             content: '';
@@ -308,83 +476,33 @@ $paymentManager->checkExpiredPayments();
             left: -100%;
             width: 100%;
             height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
             transition: left 0.5s;
         }
         .reservation-card:hover::before {
             left: 100%;
         }
         .reservation-card:hover {
-            transform: translateY(-4px);
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px -8px rgba(0, 0, 0, 0.12), 0 0 0 1px rgba(59, 130, 246, 0.05);
+            border-color: rgba(59, 130, 246, 0.2);
         }
         .filter-tab {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: all 0.2s ease;
             position: relative;
-            overflow: hidden;
             cursor: pointer;
-            border: 2px solid transparent;
-        }
-        
-        .filter-tab::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-            transition: left 0.6s ease;
-        }
-        
-        .filter-tab:hover::before {
-            left: 100%;
         }
         
         .filter-tab.active {
             background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
             color: white !important;
-            transform: scale(1.05);
-            box-shadow: 0 15px 35px -5px rgba(59, 130, 246, 0.4);
-            border-color: #1d4ed8;
-        }
-        
-        .filter-tab.active .text-black {
-            color: white !important;
-        }
-        
-        .filter-tab.active .text-gray-600 {
-            color: rgba(255, 255, 255, 0.8) !important;
+            transform: scale(1.02);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
         }
         
         .filter-tab:hover:not(.active) {
-            transform: translateY(-4px) scale(1.02);
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
-        }
-        
-        .filter-tab:active {
-            transform: scale(0.98);
-        }
-        
-        /* Enhanced text visibility */
-        .filter-tab .text-black {
-            color: #000000 !important;
-            font-weight: 700 !important;
-        }
-        
-        .filter-tab .text-gray-600 {
-            color: #4b5563 !important;
-            font-weight: 500 !important;
-        }
-        .reservation-row {
-            transition: all 0.3s ease;
-        }
-        .reservation-row:hover {
-            background: linear-gradient(135deg, #f8fafc, #f1f5f9);
-            transform: translateX(4px);
-        }
-        .payment-status-indicator {
-            animation: pulse 2s infinite;
+            background: rgba(59, 130, 246, 0.05);
+            transform: translateY(-1px);
         }
         .floating-action {
             position: fixed;
@@ -393,26 +511,7 @@ $paymentManager->checkExpiredPayments();
             z-index: 50;
             animation: bounce-in 0.8s ease-out;
         }
-        .quick-stats {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .quick-stats-card {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
-        }
-        /* Card-only layout for all screen sizes */
-        .reservation-table {
-            display: none !important;
-        }
-        .reservation-cards {
-            display: block !important;
-        }
+
     </style>
 </head>
 <body class="bg-gradient-to-br from-blue-50 via-white to-purple-50 min-h-screen">
@@ -424,69 +523,84 @@ $paymentManager->checkExpiredPayments();
         </div>
     </div>
 
-    <!-- Enhanced Navigation -->
-    <nav class="nav-bar">
-        <div class="nav-container">
-            <div class="nav-brand">
-                <div class="nav-logo">
-                    <i class="fas fa-building text-white"></i>
+    <!-- Sidebar Overlay -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    
+    <!-- Mobile Toggle Button -->
+    <button class="sidebar-toggle" id="sidebarToggle">
+        <i class="fas fa-bars"></i>
+    </button>
+    
+    <!-- Modern Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+        <!-- Sidebar Header -->
+        <div class="sidebar-header">
+            <div class="sidebar-brand">
+                <div class="sidebar-logo">
+                    <i class="fas fa-building text-white text-xl"></i>
                 </div>
-                <h1 class="nav-title"><?php echo SITE_NAME; ?></h1>
+                <h1 class="sidebar-title"><?php echo SITE_NAME; ?></h1>
             </div>
             
-            <!-- Desktop Navigation -->
-            <div class="nav-menu">
-                <div class="nav-user-info">
-                    <i class="fas fa-user nav-user-icon"></i>
-                    <span class="nav-user-name">Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?></span>
+            <!-- User Info -->
+            <div class="sidebar-user">
+                <div class="sidebar-user-avatar">
+                    <i class="fas fa-user"></i>
                 </div>
-                <a href="index.php" class="nav-btn">
+                <div class="sidebar-user-info">
+                    <div class="sidebar-user-name"><?php echo htmlspecialchars($_SESSION['full_name']); ?></div>
+                    <div class="sidebar-user-role">User</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar Navigation -->
+        <nav class="sidebar-nav">
+            <a href="index.php" class="sidebar-nav-item">
+                <i class="fas fa-home"></i>
                     <span>Home</span>
                 </a>
-                <a href="facilities.php" class="nav-btn">
+            <a href="facilities.php" class="sidebar-nav-item">
+                <i class="fas fa-building"></i>
                     <span>Facilities</span>
                 </a>
-                <a href="my_reservations.php" class="nav-btn">
-                            <span>My Reservations</span>
-                        </a>
-                <a href="auth/logout.php" class="nav-btn logout-btn" onclick="return confirmLogout()">
+            <a href="my_reservations.php" class="sidebar-nav-item active">
+                <i class="fas fa-calendar-check"></i>
+                    <span>My Reservations</span>
+                </a>
+            <a href="archived_reservations.php" class="sidebar-nav-item">
+                <i class="fas fa-archive"></i>
+                <span>Archived</span>
+            </a>
+            <a href="usage_history.php" class="sidebar-nav-item">
+                <i class="fas fa-history"></i>
+                    <span>Usage History</span>
+                </a>
+        </nav>
+        
+        <!-- Sidebar Footer -->
+        <div class="sidebar-footer">
+            <a href="auth/logout.php" class="sidebar-nav-item logout" onclick="return confirmLogout()">
+                <i class="fas fa-sign-out-alt"></i>
                     <span>Logout</span>
                 </a>
             </div>
-            
-            <!-- Enhanced Mobile menu button -->
-            <div class="nav-menu-mobile">
-                <button id="mobile-menu-button" class="mobile-menu-btn" aria-label="Toggle mobile menu">
-                    <span class="hamburger-line"></span>
-                    <span class="hamburger-line"></span>
-                    <span class="hamburger-line"></span>
-                </button>
+    </aside>
+    
+    <!-- Main Content Wrapper -->
+    <div class="main-wrapper">
+        <div class="max-w-6xl mx-auto px-4 py-6">
+            <!-- Header Section -->
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h1 class="text-2xl font-bold text-gray-900">My Reservations</h1>
+                    <p class="text-sm text-gray-600 mt-1">Manage your active facility bookings</p>
             </div>
-        </div>
-            <!-- Mobile Navigation -->
-        <div id="mobile-menu" class="hidden mobile-menu">
-            <div class="container" style="padding: 1rem 0;">
-                <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                    <div style="color: white; padding: 0.75rem; background: rgba(255, 255, 255, 0.1); border-radius: 8px; font-weight: 500; border: 1px solid rgba(255, 255, 255, 0.2);">
-                        <i class="fas fa-user" style="margin-right: 0.5rem;"></i>Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?>
-                    </div>
-                    <a href="index.php" class="nav-btn" style="display: block; text-align: center;">
-                        Home
-                    </a>
-                    <a href="facilities.php" class="nav-btn" style="display: block; text-align: center;">
-                        Facilities
-                    </a>
-                    <a href="auth/logout.php" class="nav-btn logout-btn" style="display: block; text-align: center;" onclick="return confirmLogout()">
-                        Logout
+                <a href="archived_reservations.php" class="inline-flex items-center px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors duration-200">
+                    <i class="fas fa-archive mr-2"></i>View Archived
                     </a>
                 </div>
-            </div>
-        </div>
-    </nav>
-    <div class="max-w-7xl mx-auto px-4 py-8">
        
-       
-        <!-- Quick Overview Section -->
         <?php
         $totalReservations = count($reservations);
         $pendingPayments = count(array_filter($reservations, function($r) { 
@@ -499,7 +613,7 @@ $paymentManager->checkExpiredPayments();
         
         <!-- Success/Error Messages -->
         <?php if (isset($success_message)): ?>
-            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-6 animate-fade-in">
+                <div class="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4 animate-fade-in">
                 <div class="flex items-center">
                     <i class="fas fa-check-circle mr-2"></i>
                     <?php echo htmlspecialchars($success_message); ?>
@@ -507,7 +621,7 @@ $paymentManager->checkExpiredPayments();
             </div>
         <?php endif; ?>
         <?php if (!empty($errors)): ?>
-            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6 animate-fade-in">
+                <div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 animate-fade-in">
                 <div class="flex items-center">
                     <i class="fas fa-exclamation-circle mr-2"></i>
                     <ul class="list-disc list-inside">
@@ -519,242 +633,258 @@ $paymentManager->checkExpiredPayments();
             </div>
         <?php endif; ?>
         
-       
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                            <i class="fas fa-calendar-check text-blue-600"></i>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-gray-900"><?php echo $totalReservations; ?></div>
+                            <div class="text-sm text-gray-600">Total Reservations</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center mr-3">
+                            <i class="fas fa-clock text-orange-600"></i>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-gray-900"><?php echo $pendingPayments; ?></div>
+                            <div class="text-sm text-gray-600">Pending Payment</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                            <i class="fas fa-calendar-alt text-green-600"></i>
+                        </div>
+                        <div>
+                            <div class="text-2xl font-bold text-gray-900"><?php echo $upcomingReservations; ?></div>
+                            <div class="text-sm text-gray-600">Upcoming</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         
-        <!-- Simplified Filter Tabs -->
-        <div class="bg-white rounded-2xl p-6 mb-8 shadow-lg animate-slide-up" style="animation-delay: 0.2s;">
-            <h3 class="text-xl font-bold text-gray-800 mb-4 text-center">Filter Reservations</h3>
-            
-            <div class="flex flex-wrap justify-center gap-3">
-                <button class="filter-tab active px-6 py-3 rounded-xl font-semibold transition-all duration-300 bg-blue-500 text-white shadow-lg" data-filter="all">
-                    All Reservations
+            <!-- Filter Tabs -->
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center space-x-2 bg-gray-50 rounded-lg p-1">
+                    <button class="filter-tab active px-4 py-2 rounded-md font-medium transition-all duration-200 text-sm" data-filter="all">
+                        <i class="fas fa-th-large mr-2"></i>All
                 </button>
-                
-                <button class="filter-tab px-6 py-3 rounded-xl font-semibold transition-all duration-300 bg-gray-100 text-gray-700 hover:bg-yellow-100 hover:text-yellow-700" data-filter="pending">
-                    Pending
+                    <button class="filter-tab px-4 py-2 rounded-md font-medium transition-all duration-200 text-sm" data-filter="pending">
+                        <i class="fas fa-clock mr-2"></i>Pending
                 </button>
-                
-                <button class="filter-tab px-6 py-3 rounded-xl font-semibold transition-all duration-300 bg-gray-100 text-gray-700 hover:bg-green-100 hover:text-green-700" data-filter="confirmed">
-                    Confirmed
+                    <button class="filter-tab px-4 py-2 rounded-md font-medium transition-all duration-200 text-sm" data-filter="confirmed">
+                        <i class="fas fa-check-circle mr-2"></i>Confirmed
                 </button>
-                
-                <button class="filter-tab px-6 py-3 rounded-xl font-semibold transition-all duration-300 bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-700" data-filter="completed">
-                    Completed
-                </button>
-                
-                <button class="filter-tab px-6 py-3 rounded-xl font-semibold transition-all duration-300 bg-gray-100 text-gray-700 hover:bg-red-100 hover:text-red-700" data-filter="cancelled">
-                    Cancelled
+                    <button class="filter-tab px-4 py-2 rounded-md font-medium transition-all duration-200 text-sm" data-filter="completed">
+                        <i class="fas fa-check-double mr-2"></i>Completed
                 </button>
             </div>
-            
-            <!-- Filter Results Counter -->
-            <div class="mt-4 text-center">
-                <div class="inline-flex items-center bg-gray-100 rounded-full px-4 py-2">
-                    <i class="fas fa-info-circle text-gray-600 mr-2"></i>
-                    <span class="text-gray-700 font-medium" id="filter-results-count">Showing all reservations</span>
-                </div>
+                <div class="text-sm text-gray-600" id="filter-results-count">
+                    <?php echo $totalReservations; ?> reservations
             </div>
         </div>
         <!-- Waitlist Section -->
         <?php if (!empty($waitlist_entries)): ?>
-            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6 animate-slide-up" style="animation-delay: 0.2s;">
-                <h2 class="text-xl font-semibold text-yellow-800 mb-4 flex items-center">
-                    <i class="fas fa-hourglass-half mr-2"></i>Waitlist Entries
-                </h2>
-                <div class="space-y-4">
-                    <?php foreach ($waitlist_entries as $entry): ?>
-                        <div class="bg-white rounded-lg p-4 border border-yellow-200">
+                <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
                             <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center mr-3">
+                                <i class="fas fa-hourglass-half text-amber-600"></i>
+                            </div>
                                 <div>
-                                    <h3 class="font-semibold text-gray-800"><?php echo htmlspecialchars($entry['facility_name']); ?></h3>
-                                    <p class="text-sm text-gray-600">
-                                        <i class="fas fa-calendar mr-1"></i>
-                                        <?php echo date('M j, Y g:i A', strtotime($entry['start_time'])); ?> - 
-                                        <?php echo date('g:i A', strtotime($entry['end_time'])); ?>
-                                    </p>
+                                <h3 class="font-semibold text-amber-800">Waitlist Entries</h3>
+                                <p class="text-sm text-amber-700"><?php echo count($waitlist_entries); ?> pending</p>
                                 </div>
-                                <form method="POST" class="flex items-center space-x-2">
-                                    <input type="hidden" name="action" value="remove_waitlist">
-                                    <input type="hidden" name="waitlist_id" value="<?php echo $entry['id']; ?>">
-                                    <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm transition duration-200 transform hover:scale-105">
-                                        <i class="fas fa-times mr-1"></i>Remove
-                                    </button>
-                                </form>
+                        </div>
+                        <div class="flex space-x-2">
+                            <?php foreach ($waitlist_entries as $entry): ?>
+                                <div class="bg-white rounded-lg px-3 py-2 border border-amber-200">
+                                    <div class="text-sm font-medium text-gray-800"><?php echo htmlspecialchars($entry['facility_name']); ?></div>
+                                    <div class="text-xs text-gray-600">
+                                        <?php echo date('M j, g:i A', strtotime($entry['start_time'])); ?>
                             </div>
                         </div>
                     <?php endforeach; ?>
+                        </div>
                 </div>
             </div>
         <?php endif; ?>
+
         <!-- Reservation Cards -->
-        <div class="space-y-6">
+            <div class="grid gap-4">
             <?php foreach ($reservations as $index => $reservation): ?>
-                <div class="reservation-card bg-white rounded-3xl shadow-xl p-8 animate-slide-up border border-gray-100 hover:shadow-2xl transition-all duration-300 transform hover:scale-105" 
+                    <div class="reservation-card bg-white rounded-xl p-4 border border-gray-100 hover:shadow-md transition-all duration-200"
                      data-status="<?php echo $reservation['status']; ?>"
-                     style="animation-delay: <?php echo $index * 0.1; ?>s;">
+                         style="animation-delay: <?php echo $index * 0.05; ?>s;">
                     
                     <!-- Card Header -->
-                    <div class="flex items-start justify-between mb-6">
-                        <div class="flex items-center space-x-4">
-                            <div class="h-16 w-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                                <i class="fas fa-building text-white text-xl"></i>
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center space-x-3">
+                                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                                    <i class="fas fa-building text-white"></i>
                             </div>
-                            <div>
-                                <h3 class="text-xl font-bold text-gray-900 mb-1"><?php echo htmlspecialchars($reservation['facility_name']); ?></h3>
-                                <p class="text-sm text-gray-600 font-medium"><?php echo htmlspecialchars($reservation['category_name']); ?></p>
+                                <div class="min-w-0 flex-1">
+                                    <h3 class="font-semibold text-gray-900 truncate"><?php echo htmlspecialchars($reservation['facility_name']); ?></h3>
+                                    <p class="text-sm text-gray-500"><?php echo htmlspecialchars($reservation['category_name']); ?></p>
                             </div>
                         </div>
-                        <div class="text-right">
-                            <span class="inline-flex items-center px-4 py-2 rounded-2xl text-sm font-bold <?php echo isset($statusColors[$reservation['status']]) ? $statusColors[$reservation['status']] : 'bg-gray-100 text-gray-800'; ?> shadow-lg">
-                                <i class="<?php echo isset($statusIcons[$reservation['status']]) ? $statusIcons[$reservation['status']] : 'fas fa-question'; ?> mr-2"></i>
+                            <?php
+                            $statusColors = [
+                                'pending' => 'bg-yellow-100 text-yellow-700',
+                                'confirmed' => 'bg-green-100 text-green-700',
+                                'completed' => 'bg-blue-100 text-blue-700',
+                                'cancelled' => 'bg-red-100 text-red-700',
+                                'expired' => 'bg-gray-100 text-gray-700'
+                            ];
+                            $statusIcons = [
+                                'pending' => 'fas fa-clock',
+                                'confirmed' => 'fas fa-check-circle',
+                                'completed' => 'fas fa-check-double',
+                                'cancelled' => 'fas fa-times-circle',
+                                'expired' => 'fas fa-ban'
+                            ];
+                            ?>
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?php echo isset($statusColors[$reservation['status']]) ? $statusColors[$reservation['status']] : 'bg-gray-100 text-gray-700'; ?>">
+                                <i class="<?php echo isset($statusIcons[$reservation['status']]) ? $statusIcons[$reservation['status']] : 'fas fa-question'; ?> mr-1"></i>
                             <?php echo ucfirst($reservation['status']); ?>
                         </span>
                     </div>
+
+                        <!-- Reservation Details -->
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                            <div class="text-center">
+                                <div class="text-xs text-gray-500 uppercase tracking-wide">Date</div>
+                                <div class="font-semibold text-gray-900">
+                                    <?php echo date('M j', strtotime($reservation['start_time'])); ?>
                     </div>
-                    <!-- Reservation Details Grid -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                        <div class="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6 border border-blue-200">
-                            <div class="flex items-center space-x-3 mb-3">
-                                <div class="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
-                                    <i class="fas fa-calendar text-white"></i>
                                 </div>
-                                <h4 class="font-bold text-gray-800">Date & Time</h4>
+                            <div class="text-center">
+                                <div class="text-xs text-gray-500 uppercase tracking-wide">Time</div>
+                                <div class="font-semibold text-gray-900">
+                                    <?php echo date('g:i A', strtotime($reservation['start_time'])); ?> -
+                                    <?php echo date('g:i A', strtotime($reservation['end_time'])); ?>
                             </div>
-                            <p class="text-lg font-semibold text-gray-900 mb-1">
-                                <?php 
-                                $startDate = date('M j, Y', strtotime($reservation['start_time']));
-                                $endDate = date('M j, Y', strtotime($reservation['end_time']));
-                                if ($startDate === $endDate) {
-                                    echo $startDate;
-                                } else {
-                                    echo $startDate . ' - ' . $endDate;
-                                }
-                                ?>
-                            </p>
-                            <p class="text-gray-600 font-medium">
-                                <?php echo date('g:i A', strtotime($reservation['start_time'])); ?> - <?php echo date('g:i A', strtotime($reservation['end_time'])); ?>
-                            </p>
                         </div>
-                        
-                        <div class="bg-gradient-to-br from-green-50 to-green-100 rounded-2xl p-6 border border-green-200">
-                            <div class="flex items-center space-x-3 mb-3">
-                                <div class="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center">
-                                    <i class="fas fa-money-bill text-white"></i>
+                            <div class="text-center">
+                                <div class="text-xs text-gray-500 uppercase tracking-wide">Amount</div>
+                                <div class="font-semibold text-green-600">₱<?php echo number_format($reservation['total_amount'], 0); ?></div>
                         </div>
-                                <h4 class="font-bold text-gray-800">Payment Info</h4>
+                            <div class="text-center">
+                                <div class="text-xs text-gray-500 uppercase tracking-wide">Duration</div>
+                                <div class="font-semibold text-gray-900">
+                                    <?php echo formatBookingDuration($reservation['start_time'], $reservation['end_time'], $reservation['booking_type'] ?? 'hourly'); ?>
                             </div>
-                            <p class="text-2xl font-bold text-green-600 mb-1">₱<?php echo number_format($reservation['total_amount'], 2); ?></p>
-                            <p class="text-gray-600 font-medium">
-                                <?php echo ucfirst($reservation['booking_type'] ?? 'hourly'); ?> booking
-                                (<?php echo formatBookingDuration($reservation['start_time'], $reservation['end_time'], $reservation['booking_type'] ?? 'hourly'); ?>)
-                            </p>
+                            </div>
                         </div>
                         
-                        <div class="bg-gradient-to-br from-purple-50 to-purple-100 rounded-2xl p-6 border border-purple-200">
-                        
-                        <div class="bg-gradient-to-br from-orange-50 to-orange-100 rounded-2xl p-6 border border-orange-200">
-                            <div class="flex items-center space-x-3 mb-3">
-                                <div class="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
-                                    <i class="fas fa-info-circle text-white"></i>
+                        <!-- Purpose -->
+                        <?php if ($reservation['purpose']): ?>
+                            <div class="mb-4">
+                                <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Purpose</div>
+                                <div class="text-sm text-gray-700 bg-gray-50 rounded-lg px-3 py-2">
+                                    <?php echo htmlspecialchars($reservation['purpose']); ?>
                                 </div>
-                                <h4 class="font-bold text-gray-800">Purpose</h4>
                             </div>
-                            <p class="text-lg font-semibold text-gray-900 mb-1"><?php echo htmlspecialchars($reservation['purpose'] ?: 'General use'); ?></p>
-                            <p class="text-gray-600 font-medium">Booking purpose</p>
-                        </div>
-                    </div>
-                    <!-- Enhanced Payment Status Section -->
+                        <?php endif; ?>
+
+                        <!-- Payment Status -->
                     <?php if ($reservation['status'] !== 'cancelled'): ?>
-                        <div class="mb-6 p-6 bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl border border-gray-200">
-                            <div class="flex items-center justify-between mb-4">
-                                <div class="flex items-center space-x-3">
-                                    <div class="w-10 h-10 bg-gray-500 rounded-xl flex items-center justify-center">
-                                        <i class="fas fa-credit-card text-white"></i>
-                                    </div>
-                                    <h4 class="font-bold text-gray-800">Payment Status</h4>
-                                </div>
+                            <div class="mb-4">
+                                <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">Payment Status</div>
+                                <div class="flex items-center justify-between">
                                 <?php if ($reservation['payment_status'] === 'pending'): ?>
-                                    <?php if ($reservation['payment_slip_url']): ?>
-                                        <span class="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-800 rounded-xl font-semibold shadow-lg">
-                                            <i class="fas fa-file-upload mr-2"></i>Uploaded
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="inline-flex items-center px-4 py-2 bg-orange-100 text-orange-800 rounded-xl font-semibold shadow-lg">
-                                            <i class="fas fa-exclamation-triangle mr-2"></i>Required
-                                        </span>
-                                    <?php endif; ?>
+                                    <span class="inline-flex items-center px-2 py-1 bg-orange-100 text-orange-700 rounded-md text-xs">
+                                        <i class="fas fa-clock mr-1"></i>Pending Payment
+                                    </span>
                                 <?php elseif ($reservation['payment_status'] === 'paid'): ?>
-                                    <span class="inline-flex items-center px-4 py-2 bg-green-100 text-green-800 rounded-xl font-semibold shadow-lg">
-                                        <i class="fas fa-check-circle mr-2"></i>Verified
+                                    <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 rounded-md text-xs">
+                                        <i class="fas fa-check-circle mr-1"></i>Paid
                                     </span>
                                 <?php endif; ?>
                             </div>
-                            <?php if ($reservation['payment_status'] === 'pending' && $reservation['payment_slip_url']): ?>
-                                <div class="flex items-center text-gray-600 font-medium">
-                                    <?php if ($reservation['payment_verified_at']): ?>
-                                        <i class="fas fa-check-circle text-green-500 mr-2 text-lg"></i>
-                                        Payment verified on <?php echo date('M j, Y g:i A', strtotime($reservation['payment_verified_at'])); ?>
-                                    <?php else: ?>
-                                        <i class="fas fa-clock text-yellow-500 mr-2 text-lg"></i>
-                                        Awaiting admin verification
-                                    <?php endif; ?>
+                            
+                            <!-- Payment Verification Details -->
+                            <?php if ($reservation['payment_status'] === 'paid' && $reservation['payment_verified_at']): ?>
+                                <div class="bg-green-50 border border-green-200 rounded-lg p-3 mb-4">
+                                    <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">Payment Verification Details</div>
+                                    <div class="space-y-2">
+                                        <?php if ($reservation['or_number']): ?>
+                                            <div class="flex items-center text-sm">
+                                                <i class="fas fa-receipt text-green-600 mr-2"></i>
+                                                <span class="text-gray-700">OR Number: <strong><?php echo htmlspecialchars($reservation['or_number']); ?></strong></span>
+                                            </div>
+                                        <?php endif; ?>
+                                        
+                                        <?php if ($reservation['verified_by_staff_name']): ?>
+                                            <div class="flex items-center text-sm">
+                                                <i class="fas fa-user-check text-green-600 mr-2"></i>
+                                                <span class="text-gray-700">Verified by: <strong><?php echo htmlspecialchars($reservation['verified_by_staff_name']); ?></strong></span>
+                                            </div>
+                                        <?php endif; ?>
+                                        
+                                        <?php if ($reservation['verified_by_admin']): ?>
+                                            <div class="flex items-center text-sm">
+                                                <i class="fas fa-user-shield text-green-600 mr-2"></i>
+                                                <span class="text-gray-700">Admin: <strong><?php echo htmlspecialchars($reservation['verified_by_admin']); ?></strong></span>
+                                            </div>
+                                        <?php endif; ?>
+                                        
+                                        <div class="flex items-center text-sm">
+                                            <i class="fas fa-calendar-check text-green-600 mr-2"></i>
+                                            <span class="text-gray-700">Verified on: <strong><?php echo date('M j, Y g:i A', strtotime($reservation['payment_verified_at'])); ?></strong></span>
+                                        </div>
+                                    </div>
                                 </div>
                             <?php endif; ?>
                         </div>
                     <?php endif; ?>
                     
-                    <!-- Enhanced Action Buttons -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- Action Buttons -->
+                        <div class="flex items-center justify-between">
                         <a href="facility_details.php?facility_id=<?php echo $reservation['facility_id']; ?>" 
-                           class="group flex items-center justify-center space-x-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-6 py-4 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg">
-                            <i class="fas fa-eye text-lg group-hover:scale-110 transition-transform duration-200"></i>
-                            <span>View Details</span>
+                               class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                <i class="fas fa-eye mr-1"></i>View Details
                         </a>
                         
-                        <?php if ($reservation['status'] === 'pending'): ?>
-                            <?php if ($reservation['payment_slip_url']): ?>
-                                <div class="flex items-center justify-center space-x-2 bg-blue-500 text-white px-6 py-4 rounded-2xl font-semibold shadow-lg">
-                                    <i class="fas fa-file-upload text-lg"></i>
-                                    <span>Uploaded</span>
-                                </div>
-                            <?php else: ?>
-                                <a href="upload_payment.php?reservation_id=<?php echo $reservation['id']; ?>" 
-                                   class="group flex items-center justify-center space-x-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white px-6 py-4 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg">
-                                    <i class="fas fa-upload text-lg group-hover:scale-110 transition-transform duration-200"></i>
-                                    <span>Upload Payment</span>
-                                </a>
-                            <?php endif; ?>
-                        <?php elseif ($reservation['payment_status'] === 'paid'): ?>
-                            <div class="flex items-center justify-center space-x-2 bg-green-500 text-white px-6 py-4 rounded-2xl font-semibold shadow-lg">
-                                <i class="fas fa-check-circle text-lg"></i>
-                                <span>Paid</span>
-                            </div>
+                            <div class="flex items-center space-x-2">
+                        <?php if ($reservation['payment_status'] === 'paid'): ?>
+                                    <span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Paid</span>
+                        <?php elseif ($reservation['status'] === 'pending'): ?>
+                                    <span class="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs">Payment Required</span>
                         <?php endif; ?>
                         
                         <?php if (in_array($reservation['status'], ['pending', 'confirmed'])): ?>
                             <button onclick="showCancelConfirmation(<?php echo $reservation['id']; ?>, '<?php echo htmlspecialchars($reservation['facility_name']); ?>', '<?php echo date('M j, Y g:i A', strtotime($reservation['start_time'])); ?>')" 
-                                    class="group flex items-center justify-center space-x-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-6 py-4 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg">
-                                <i class="fas fa-times text-lg group-hover:scale-110 transition-transform duration-200"></i>
-                                <span>Cancel</span>
+                                            class="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-sm font-medium transition-colors">
+                                        <i class="fas fa-times mr-1"></i>Cancel
                             </button>
                         <?php endif; ?>
+                            </div>
                     </div>
                 </div>
             <?php endforeach; ?>
         </div>
-        <!-- Enhanced Empty State -->
+            <!-- Empty State -->
         <?php if (empty($reservations)): ?>
-            <div class="text-center py-16 animate-fade-in">
-                <div class="w-24 h-24 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <i class="fas fa-calendar-times text-gray-400 text-4xl"></i>
+                <div class="text-center py-12">
+                    <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-calendar-times text-gray-400 text-2xl"></i>
                 </div>
-                <h3 class="text-2xl font-bold text-gray-800 mb-3">No reservations found</h3>
-                <p class="text-gray-600 mb-8 max-w-md mx-auto">You haven't made any reservations yet. Start by browsing our available facilities and book your first reservation.</p>
-                <a href="facilities.php" class="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl inline-flex items-center">
-                    <i class="fas fa-search mr-3"></i>Browse Facilities
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">No reservations found</h3>
+                    <p class="text-gray-600 mb-6">You haven't made any reservations yet. Browse available facilities to get started.</p>
+                    <a href="facilities.php" class="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+                        <i class="fas fa-search mr-2"></i>Browse Facilities
                 </a>
             </div>
         <?php endif; ?>
+        </div>
     </div>
   
     <!-- Cancel Confirmation Modal -->
@@ -816,6 +946,7 @@ $paymentManager->checkExpiredPayments();
             <!-- Modal content will be dynamically inserted here -->
         </div>
     </div>
+
     
     <script>
         // Hide loading overlay when page is ready
@@ -829,21 +960,44 @@ $paymentManager->checkExpiredPayments();
             }
         });
         document.addEventListener('DOMContentLoaded', function() {
-            // Mobile menu functionality
-            const mobileMenuButton = document.getElementById('mobile-menu-button');
-            const mobileMenu = document.getElementById('mobile-menu');
-            if (mobileMenuButton && mobileMenu) {
-                mobileMenuButton.addEventListener('click', function() {
-                    const isHidden = mobileMenu.classList.contains('hidden');
-                    if (isHidden) {
-                        mobileMenu.classList.remove('hidden');
-                        mobileMenuButton.innerHTML = '<i class="fas fa-times text-xl"></i>';
+            // Sidebar toggle functionality
+            const sidebar = document.getElementById('sidebar');
+            const sidebarToggle = document.getElementById('sidebarToggle');
+            const sidebarOverlay = document.getElementById('sidebarOverlay');
+            
+            function toggleSidebar() {
+                sidebar.classList.toggle('active');
+                sidebarOverlay.classList.toggle('active');
+                
+                // Change icon
+                const icon = sidebarToggle.querySelector('i');
+                if (sidebar.classList.contains('active')) {
+                    icon.className = 'fas fa-times';
                     } else {
-                        mobileMenu.classList.add('hidden');
-                        mobileMenuButton.innerHTML = '<i class="fas fa-bars text-xl"></i>';
+                    icon.className = 'fas fa-bars';
+                }
+            }
+            
+            if (sidebarToggle) {
+                sidebarToggle.addEventListener('click', toggleSidebar);
+            }
+            
+            if (sidebarOverlay) {
+                sidebarOverlay.addEventListener('click', toggleSidebar);
+            }
+            
+            // Close sidebar on navigation (mobile)
+            const sidebarLinks = document.querySelectorAll('.sidebar-nav-item');
+            sidebarLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    if (window.innerWidth <= 1024) {
+                        sidebar.classList.remove('active');
+                        sidebarOverlay.classList.remove('active');
+                        const icon = sidebarToggle.querySelector('i');
+                        icon.className = 'fas fa-bars';
                     }
                 });
-            }
+            });
             // Enhanced Filter functionality
             const filterTabs = document.querySelectorAll('.filter-tab');
             const reservationCards = document.querySelectorAll('.reservation-card');
@@ -864,11 +1018,10 @@ $paymentManager->checkExpiredPayments();
                 // Update results counter
                 if (filterResultsCount) {
                     const filterNames = {
-                        'all': 'all',
+                        'all': 'active',
                         'pending': 'pending',
                         'confirmed': 'confirmed',
-                        'completed': 'completed',
-                        'cancelled': 'cancelled'
+                        'completed': 'completed'
                     };
                     
                     if (visibleCount === 0) {
@@ -1017,6 +1170,7 @@ $paymentManager->checkExpiredPayments();
         function confirmLogout() {
             return confirm('⚠️ Are you sure you want to logout?\n\nThis will end your current session and you will need to login again to access your reservations.');
         }
+
         
         // Facility details modal function
         function showFacilityDetails(facilityId) {
@@ -1124,14 +1278,6 @@ $paymentManager->checkExpiredPayments();
                             </div>
                         </div>
                         
-                        ${reservation.payment_status === 'pending' && reservation.payment_slip_url ? `
-                            <div class="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                <div class="flex items-center text-blue-800">
-                                    <i class="fas fa-file-upload mr-2"></i>
-                                    <span class="text-sm font-medium">Payment slip uploaded - awaiting verification</span>
-                                </div>
-                            </div>
-                        ` : ''}
                         
                         ${reservation.payment_status === 'paid' ? `
                             <div class="mt-3 p-3 bg-green-50 rounded-lg border border-green-200">
