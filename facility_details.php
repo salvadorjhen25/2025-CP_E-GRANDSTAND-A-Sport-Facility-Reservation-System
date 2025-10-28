@@ -32,7 +32,8 @@ if (!$facility) {
 // Get pricing options for this facility
 try {
     $stmt = $pdo->prepare("
-        SELECT * FROM facility_pricing_options 
+        SELECT id, name, description, pricing_type, price_per_unit, price_per_hour, is_active, sort_order 
+        FROM facility_pricing_options 
         WHERE facility_id = ? AND is_active = 1 
         ORDER BY sort_order ASC, name ASC
     ");
@@ -41,6 +42,209 @@ try {
 } catch (PDOException $e) {
     // If tables don't exist yet, set empty array
     $pricing_options = [];
+}
+
+// Handle rating submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    if ($_POST['action'] === 'submit_rating') {
+        $rating = (int)$_POST['rating'];
+        $review_title = trim($_POST['review_title'] ?? '');
+        $review_text = trim($_POST['review_text'] ?? '');
+        $is_anonymous = isset($_POST['is_anonymous']) ? 1 : 0;
+        
+        if ($rating >= 1 && $rating <= 5) {
+            try {
+                // Check if user already rated this facility
+                $stmt = $pdo->prepare("SELECT id FROM facility_ratings WHERE user_id = ? AND facility_id = ?");
+                $stmt->execute([$_SESSION['user_id'], $facility_id]);
+                $existing_rating = $stmt->fetch();
+                
+                if ($existing_rating) {
+                    // Update existing rating
+                    $stmt = $pdo->prepare("
+                        UPDATE facility_ratings 
+                        SET rating = ?, review_title = ?, review_text = ?, is_anonymous = ?, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    ");
+                    $stmt->execute([$rating, $review_title, $review_text, $is_anonymous, $existing_rating['id']]);
+                } else {
+                    // Insert new rating
+                    $stmt = $pdo->prepare("
+                        INSERT INTO facility_ratings (facility_id, user_id, rating, review_title, review_text, is_anonymous, is_verified)
+                        VALUES (?, ?, ?, ?, ?, ?, 1)
+                    ");
+                    $stmt->execute([$facility_id, $_SESSION['user_id'], $rating, $review_title, $review_text, $is_anonymous]);
+                }
+                
+                // Update facility rating summary
+                updateFacilityRatingSummary($pdo, $facility_id);
+                
+                $_SESSION['success_message'] = 'Thank you for your rating and feedback!';
+                header("Location: facility_details.php?facility_id=$facility_id");
+                exit();
+            } catch (PDOException $e) {
+                $_SESSION['error_message'] = 'Failed to submit rating. Please try again.';
+            }
+        }
+    }
+    
+    if ($_POST['action'] === 'submit_reply') {
+        $rating_id = (int)$_POST['rating_id'];
+        $reply_text = trim($_POST['reply_text'] ?? '');
+        
+        if ($reply_text && $rating_id) {
+            try {
+                $stmt = $pdo->prepare("
+                    INSERT INTO feedback_replies (rating_id, user_id, reply_text, is_facility_reply)
+                    VALUES (?, ?, ?, 0)
+                ");
+                $stmt->execute([$rating_id, $_SESSION['user_id'], $reply_text]);
+                
+                $_SESSION['success_message'] = 'Reply submitted successfully!';
+                header("Location: facility_details.php?facility_id=$facility_id");
+                exit();
+            } catch (PDOException $e) {
+                $_SESSION['error_message'] = 'Failed to submit reply. Please try again.';
+            }
+        }
+    }
+    
+    if ($_POST['action'] === 'vote_feedback') {
+        $rating_id = (int)($_POST['rating_id'] ?? 0);
+        $reply_id = (int)($_POST['reply_id'] ?? 0);
+        $vote_type = $_POST['vote_type'] ?? '';
+        
+        if (($rating_id || $reply_id) && in_array($vote_type, ['upvote', 'downvote'])) {
+            try {
+                // Check if user already voted
+                $stmt = $pdo->prepare("
+                    SELECT id FROM feedback_votes 
+                    WHERE user_id = ? AND (" . ($rating_id ? "rating_id = ?" : "reply_id = ?") . ")
+                ");
+                $stmt->execute([$_SESSION['user_id'], $rating_id ?: $reply_id]);
+                $existing_vote = $stmt->fetch();
+                
+                if ($existing_vote) {
+                    // Update existing vote
+                    $stmt = $pdo->prepare("UPDATE feedback_votes SET vote_type = ? WHERE id = ?");
+                    $stmt->execute([$vote_type, $existing_vote['id']]);
+                } else {
+                    // Insert new vote
+                    $stmt = $pdo->prepare("
+                        INSERT INTO feedback_votes (rating_id, reply_id, user_id, vote_type)
+                        VALUES (?, ?, ?, ?)
+                    ");
+                    $stmt->execute([$rating_id ?: null, $reply_id ?: null, $_SESSION['user_id'], $vote_type]);
+                }
+                
+                echo json_encode(['success' => true]);
+                exit();
+            } catch (PDOException $e) {
+                echo json_encode(['success' => false, 'error' => 'Failed to vote']);
+                exit();
+            }
+        }
+    }
+}
+
+// Function to update facility rating summary
+function updateFacilityRatingSummary($pdo, $facility_id) {
+    try {
+        // Get rating statistics
+        $stmt = $pdo->prepare("
+            SELECT 
+                AVG(rating) as avg_rating,
+                COUNT(*) as total_ratings,
+                SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) as rating_5,
+                SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END) as rating_4,
+                SUM(CASE WHEN rating = 3 THEN 1 ELSE 0 END) as rating_3,
+                SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END) as rating_2,
+                SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) as rating_1
+            FROM facility_ratings 
+            WHERE facility_id = ?
+        ");
+        $stmt->execute([$facility_id]);
+        $stats = $stmt->fetch();
+        
+        $breakdown = [
+            '5' => (int)$stats['rating_5'],
+            '4' => (int)$stats['rating_4'],
+            '3' => (int)$stats['rating_3'],
+            '2' => (int)$stats['rating_2'],
+            '1' => (int)$stats['rating_1']
+        ];
+        
+        // Update facility table
+        $stmt = $pdo->prepare("
+            UPDATE facilities 
+            SET average_rating = ?, total_ratings = ?, rating_breakdown = ?
+            WHERE id = ?
+        ");
+        $stmt->execute([
+            round($stats['avg_rating'], 2),
+            (int)$stats['total_ratings'],
+            json_encode($breakdown),
+            $facility_id
+        ]);
+    } catch (PDOException $e) {
+        error_log("Failed to update facility rating summary: " . $e->getMessage());
+    }
+}
+
+// Get facility ratings and feedback
+try {
+    $stmt = $pdo->prepare("
+        SELECT fr.*, u.full_name, u.email,
+               COUNT(fr2.id) as reply_count,
+               SUM(CASE WHEN fv.vote_type = 'upvote' THEN 1 ELSE 0 END) as upvotes,
+               SUM(CASE WHEN fv.vote_type = 'downvote' THEN 1 ELSE 0 END) as downvotes
+        FROM facility_ratings fr
+        JOIN users u ON fr.user_id = u.id
+        LEFT JOIN feedback_replies fr2 ON fr.id = fr2.rating_id
+        LEFT JOIN feedback_votes fv ON fr.id = fv.rating_id
+        WHERE fr.facility_id = ?
+        GROUP BY fr.id
+        ORDER BY fr.created_at DESC
+        LIMIT 20
+    ");
+    $stmt->execute([$facility_id]);
+    $facility_ratings = $stmt->fetchAll();
+} catch (PDOException $e) {
+    $facility_ratings = [];
+}
+
+// Get replies for each rating
+$rating_replies = [];
+foreach ($facility_ratings as $rating) {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT fr.*, u.full_name, u.email,
+                   SUM(CASE WHEN fv.vote_type = 'upvote' THEN 1 ELSE 0 END) as upvotes,
+                   SUM(CASE WHEN fv.vote_type = 'downvote' THEN 1 ELSE 0 END) as downvotes
+            FROM feedback_replies fr
+            JOIN users u ON fr.user_id = u.id
+            LEFT JOIN feedback_votes fv ON fr.id = fv.reply_id
+            WHERE fr.rating_id = ?
+            GROUP BY fr.id
+            ORDER BY fr.created_at ASC
+        ");
+        $stmt->execute([$rating['id']]);
+        $rating_replies[$rating['id']] = $stmt->fetchAll();
+    } catch (PDOException $e) {
+        $rating_replies[$rating['id']] = [];
+    }
+}
+
+// Check if current user has rated this facility
+$user_rating = null;
+if (isset($_SESSION['user_id'])) {
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM facility_ratings WHERE user_id = ? AND facility_id = ?");
+        $stmt->execute([$_SESSION['user_id'], $facility_id]);
+        $user_rating = $stmt->fetch();
+    } catch (PDOException $e) {
+        $user_rating = null;
+    }
 }
 // Get reservations for this facility
 $stmt = $pdo->prepare("
@@ -762,7 +966,7 @@ for ($hour = $start_hour; $hour <= $end_hour; $hour++) {
                                     <?php if (!empty($pricing_options)): ?>
                                         <div class="space-y-1">
                                             <?php foreach (array_slice($pricing_options, 0, 3) as $option): ?>
-                                                <p class="text-lg font-semibold"><?php echo htmlspecialchars($option['name']); ?>: ₱<?php echo number_format($option['price_per_hour'], 0); ?>/hr</p>
+                                                <p class="text-lg font-semibold"><?php echo htmlspecialchars($option['name']); ?>: ₱<?php echo number_format($option['price_per_unit'] ?: $option['price_per_hour'] ?: 0, 0); ?></p>
                                             <?php endforeach; ?>
                                             <?php if (count($pricing_options) > 3): ?>
                                                 <p class="text-sm opacity-75">+<?php echo count($pricing_options) - 3; ?> more options</p>
@@ -779,8 +983,8 @@ for ($hour = $start_hour; $hour <= $end_hour; $hour++) {
                         <?php if (!empty($pricing_options)): ?>
                         <div class="bg-white rounded-xl border border-purple-200 p-4">
                             <div class="flex items-center justify-between mb-3">
-                                <h4 class="text-sm font-semibold text-gray-800 flex items-center"><i class="fas fa-tags mr-2 text-purple-600"></i>Select a Pricing Package</h4>
-                                <span class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-semibold"><?php echo count($pricing_options); ?> packages</span>
+                                <h4 class="text-sm font-semibold text-gray-800 flex items-center"><i class="fas fa-tags mr-2 text-purple-600"></i>Select a Pricing</h4>
+                                <span class="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full font-semibold"><?php echo count($pricing_options); ?> pricings</span>
                             </div>
                             <div class="grid grid-cols-1 gap-2" id="pricingOptionsList">
                                 <?php foreach ($pricing_options as $idx => $po): ?>
@@ -794,15 +998,11 @@ for ($hour = $start_hour; $hour <= $end_hour; $hour++) {
                                             <?php endif; ?>
                                         </div>
                                     </div>
-                                    <div class="text-sm font-bold text-purple-700">₱<?php echo number_format($po['price_per_hour'], 2); ?>/hr</div>
+                                    <div class="text-sm font-bold text-purple-700">₱<?php echo number_format($po['price_per_unit'] ?: $po['price_per_hour'] ?: 0, 2); ?></div>
                                 </label>
                                 <?php endforeach; ?>
                             </div>
-                            <div class="mt-3">
-                                <a id="bookWithPackageBtn" href="#" class="w-full block text-center bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white px-4 py-3 rounded-lg font-semibold transition-all duration-300">
-                                    <i class="fas fa-calendar-plus mr-2"></i>Book with Selected Package
-                                </a>
-                            </div>
+                           
                         </div>
                         <?php endif; ?>
                     </div>
@@ -966,113 +1166,7 @@ for ($hour = $start_hour; $hour <= $end_hour; $hour++) {
             </div>
         </div>
         <?php endif; ?>
-        <!-- Booking Information Guide -->
-        <div class="enhanced-card mb-6 animate-slide-up">
-            <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-indigo-100">
-                <h3 class="text-lg font-semibold text-indigo-800">
-                    <i class="fas fa-info-circle mr-2"></i>
-                    How to Book This Facility
-                </h3>
-            </div>
-            <div class="p-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <div class="text-center">
-                        <div class="w-12 h-12 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <i class="fas fa-calendar-alt text-indigo-600 text-xl"></i>
-                        </div>
-                        <h4 class="font-semibold text-gray-800 mb-2">1. Select Date</h4>
-                        <p class="text-sm text-gray-600">Choose your preferred date using the calendar navigation</p>
-                    </div>
-                    <div class="text-center">
-                        <div class="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <i class="fas fa-clock text-green-600 text-xl"></i>
-                        </div>
-                        <h4 class="font-semibold text-gray-800 mb-2">2. Choose Time</h4>
-                        <p class="text-sm text-gray-600">Pick from available time ranges or individual slots</p>
-                    </div>
-                    <div class="text-center">
-                        <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <i class="fas fa-bolt text-blue-600 text-xl"></i>
-                        </div>
-                        <h4 class="font-semibold text-gray-800 mb-2">3. Quick Book</h4>
-                        <p class="text-sm text-gray-600">Use quick booking options for common durations</p>
-                    </div>
-                    <div class="text-center">
-                        <div class="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                            <i class="fas fa-credit-card text-purple-600 text-xl"></i>
-                        </div>
-                        <h4 class="font-semibold text-gray-800 mb-2">4. Complete Booking</h4>
-                        <p class="text-sm text-gray-600">Fill in details and upload payment slip</p>
-                    </div>
-                </div>
-                <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div class="flex items-start">
-                        <i class="fas fa-lightbulb text-blue-500 mt-1 mr-3"></i>
-                        <div>
-                            <h4 class="font-semibold text-blue-800 mb-2">Pro Tips:</h4>
-                            <ul class="text-sm text-blue-700 space-y-1">
-                                <li>• Bookings ending at 8:00 PM still allow for later bookings (8:00 PM onwards)</li>
-                                <li>• You can book multiple time slots in one reservation</li>
-                                <li>• Payment is required within 24 hours of booking</li>
-                                <li>• Cancellations are allowed for pending and confirmed reservations</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <!-- Enhanced Date Navigation -->
-        <div class="enhanced-card p-6 mb-8 animate-slide-up">
-            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6">
-                <div class="mb-4 lg:mb-0">
-                    <h2 class="text-2xl font-bold text-gray-900 mb-2">Availability Calendar</h2>
-                    <p class="text-gray-600">Check real-time availability and book your preferred time slot</p>
-                </div>
-                <div class="flex items-center space-x-4">
-                    <?php 
-                    $previous_date = date('Y-m-d', strtotime($selected_date . ' -1 day'));
-                    $is_previous_disabled = $previous_date < $today;
-                    ?>
-                    <?php if ($is_previous_disabled): ?>
-                        <span class="btn-enhanced btn-secondary-enhanced opacity-50 cursor-not-allowed">
-                            <i class="fas fa-chevron-left mr-2"></i>
-                            Previous
-                        </span>
-                    <?php else: ?>
-                        <a href="?facility_id=<?php echo $facility['id']; ?>&date=<?php echo $previous_date; ?>" 
-                           class="btn-enhanced btn-secondary-enhanced group">
-                            <i class="fas fa-chevron-left mr-2 group-hover:-translate-x-1 transition-transform duration-200"></i>
-                            Previous
-                        </a>
-                    <?php endif; ?>
-                    <div class="bg-white rounded-lg px-4 py-2 shadow-sm border">
-                        <span class="text-lg font-semibold text-gray-800">
-                            <?php echo $selected_date_obj->format('l, F j, Y'); ?>
-                        </span>
-                    </div>
-                    <a href="?facility_id=<?php echo $facility['id']; ?>&date=<?php echo date('Y-m-d', strtotime($selected_date . ' +1 day')); ?>" 
-                       class="btn-enhanced btn-secondary-enhanced group">
-                        Next
-                        <i class="fas fa-chevron-right ml-2 group-hover:translate-x-1 transition-transform duration-200"></i>
-                    </a>
-                </div>
-            </div>
-            <!-- Quick Date Navigation -->
-            <div class="quick-date-nav overflow-x-auto">
-                <div class="flex space-x-2 min-w-max">
-                    <?php for ($i = 0; $i < 7; $i++): ?>
-                        <?php $date = date('Y-m-d', strtotime("+$i days")); ?>
-                        <a href="?facility_id=<?php echo $facility['id']; ?>&date=<?php echo $date; ?>" 
-                           class="px-4 py-2 rounded-lg transition-all duration-200 whitespace-nowrap <?php echo $date === $selected_date ? 'bg-blue-500 text-white shadow-lg' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-md'; ?>">
-                            <div class="text-center">
-                                <div class="text-xs font-medium"><?php echo date('D', strtotime($date)); ?></div>
-                                <div class="text-sm font-bold"><?php echo date('j', strtotime($date)); ?></div>
-                            </div>
-                        </a>
-                    <?php endfor; ?>
-                </div>
-            </div>
-        </div>
+       
         <!-- Enhanced Availability Summary -->
         <?php
         // Calculate available time ranges with detailed information
@@ -1141,46 +1235,6 @@ for ($hour = $start_hour; $hour <= $end_hour; $hour++) {
         $total_day_hours = 13.5; // 8 AM to 9:30 PM (13.5 hours)
         $utilization_percentage = round(($total_booked_hours / $total_day_hours) * 100, 1);
         ?>
-        <!-- Availability Statistics -->
-        <div class="enhanced-card mb-6 animate-slide-up">
-            <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100">
-                <h3 class="text-lg font-semibold text-blue-800">
-                    <i class="fas fa-chart-bar mr-2"></i>
-                    Availability Statistics for <?php echo $selected_date_obj->format('l, F j, Y'); ?>
-                </h3>
-            </div>
-            <div class="p-6">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
-                        <div class="text-2xl font-bold text-blue-800"><?php echo count($available_ranges); ?></div>
-                        <div class="text-sm text-blue-600">Available Ranges</div>
-                    </div>
-                    <div class="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                        <div class="text-2xl font-bold text-green-800"><?php echo number_format($total_available_hours, 1); ?></div>
-                        <div class="text-sm text-green-600">Available Hours</div>
-                    </div>
-                    <div class="bg-orange-50 border border-orange-200 rounded-lg p-4 text-center">
-                        <div class="text-2xl font-bold text-orange-800"><?php echo number_format($total_booked_hours, 1); ?></div>
-                        <div class="text-sm text-orange-600">Booked Hours</div>
-                    </div>
-                    <div class="bg-purple-50 border border-purple-200 rounded-lg p-4 text-center">
-                        <div class="text-2xl font-bold text-purple-800"><?php echo $utilization_percentage; ?>%</div>
-                        <div class="text-sm text-purple-600">Utilization</div>
-                    </div>
-                </div>
-                <!-- Progress Bar -->
-                <div class="mb-4">
-                    <div class="flex justify-between text-sm text-gray-600 mb-2">
-                        <span>Facility Utilization</span>
-                        <span><?php echo $utilization_percentage; ?>%</span>
-                    </div>
-                    <div class="w-full bg-gray-200 rounded-full h-3">
-                        <div class="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500" 
-                             style="width: <?php echo $utilization_percentage; ?>%"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
         <?php if (!empty($available_ranges)): ?>
         
         <?php else: ?>
@@ -1287,200 +1341,197 @@ for ($hour = $start_hour; $hour <= $end_hour; $hour++) {
             </div>
         </div>
         <?php endif; ?>
-        <!-- Enhanced Time Slots Grid -->
-        <div class="enhanced-card overflow-hidden animate-slide-up">
-            <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-blue-100">
-                <div class="flex items-center justify-between">
-                    <div>
-                        <h3 class="text-xl font-semibold text-blue-900">
-                            <i class="fas fa-clock mr-2 text-blue-600"></i>
-                            Detailed Time Slots for <?php echo $selected_date_obj->format('l, F j, Y'); ?>
-                        </h3>
-                        <p class="text-sm text-blue-600 mt-1">
-                            <i class="fas fa-info-circle mr-1"></i>
-                            Operating hours: 8:00 AM - 10:00 PM • Last booking ends at 9:30 PM
-                        </p>
-                    </div>
+    </div>
+    
+    <!-- Rating and Reviews Section -->
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-2xl font-bold text-gray-900 flex items-center">
+                    <i class="fas fa-star text-yellow-500 mr-2"></i>
+                    Ratings & Reviews
+                </h3>
+                <?php if ($facility['total_ratings'] > 0): ?>
                     <div class="text-right">
-                        <div class="text-sm text-blue-600">
-                            <span class="font-semibold"><?php echo count($time_slots); ?></span> time slots available
+                        <div class="text-3xl font-bold text-gray-900"><?php echo number_format($facility['average_rating'], 1); ?></div>
+                        <div class="flex items-center">
+                            <?php for ($i = 1; $i <= 5; $i++): ?>
+                                <i class="fas fa-star <?php echo $i <= $facility['average_rating'] ? 'text-yellow-400' : 'text-gray-300'; ?>"></i>
+                            <?php endfor; ?>
+                            <span class="ml-2 text-sm text-gray-600">(<?php echo $facility['total_ratings']; ?> reviews)</span>
                         </div>
-                        <div class="text-xs text-blue-500">30-minute intervals</div>
+                    </div>
+                <?php endif; ?>
+            </div>
+            
+            <!-- Rating Form -->
+            <?php if (!$user_rating): ?>
+                <div class="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+                    <h4 class="text-lg font-semibold text-gray-900 mb-4">Rate this facility</h4>
+                    <form method="POST" action="">
+                        <input type="hidden" name="action" value="submit_rating">
+                        
+                        <!-- Star Rating -->
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Your Rating</label>
+                            <div class="flex items-center space-x-1" id="starRating">
+                                <?php for ($i = 1; $i <= 5; $i++): ?>
+                                    <button type="button" class="star-btn text-2xl text-gray-300 hover:text-yellow-400 transition-colors" data-rating="<?php echo $i; ?>">
+                                        <i class="fas fa-star"></i>
+                                    </button>
+                                <?php endfor; ?>
+                            </div>
+                            <input type="hidden" name="rating" id="ratingInput" value="0" required>
+                        </div>
+                        
+                        <!-- Review Title -->
+                        <div class="mb-4">
+                            <label for="review_title" class="block text-sm font-medium text-gray-700 mb-2">Review Title (Optional)</label>
+                            <input type="text" id="review_title" name="review_title" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Summarize your experience">
+                        </div>
+                        
+                        <!-- Review Text -->
+                        <div class="mb-4">
+                            <label for="review_text" class="block text-sm font-medium text-gray-700 mb-2">Your Review</label>
+                            <textarea id="review_text" name="review_text" rows="4" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Share your experience with this facility..."></textarea>
+                        </div>
+                        
+                        <!-- Anonymous Option -->
+                        <div class="mb-4">
+                            <label class="flex items-center">
+                                <input type="checkbox" name="is_anonymous" class="mr-2">
+                                <span class="text-sm text-gray-700">Post anonymously</span>
+                            </label>
+                        </div>
+                        
+                        <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                            Submit Review
+                        </button>
+                    </form>
+                </div>
+            <?php else: ?>
+                <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <div class="flex items-center">
+                        <i class="fas fa-check-circle text-blue-600 mr-2"></i>
+                        <span class="text-blue-800 font-medium">You have already rated this facility</span>
+                    </div>
+                    <div class="mt-2 text-sm text-blue-700">
+                        Your rating: 
+                        <?php for ($i = 1; $i <= 5; $i++): ?>
+                            <i class="fas fa-star <?php echo $i <= $user_rating['rating'] ? 'text-yellow-400' : 'text-gray-300'; ?>"></i>
+                        <?php endfor; ?>
+                        (<?php echo $user_rating['rating']; ?>/5)
                     </div>
                 </div>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-6">
-                <?php foreach ($time_slots as $time_slot): ?>
-                    <?php
-                    $slot_start = $selected_date . ' ' . $time_slot . ':00';
-                    $slot_end = date('Y-m-d H:i:s', strtotime($slot_start . ' +30 minutes'));
-                    // Check if this slot is booked
-                    $is_booked = false;
-                    $booking_info = null;
-                    foreach ($filtered_reservations as $reservation) {
-                        $reservation_start = $reservation['start_time'];
-                        $reservation_end = $reservation['end_time'];
-                        // Check if the slot overlaps with any reservation
-                        if (($slot_start >= $reservation_start && $slot_start < $reservation_end) ||
-                            ($slot_end > $reservation_start && $slot_end <= $reservation_end) ||
-                            ($slot_start <= $reservation_start && $slot_end >= $reservation_end)) {
-                            $is_booked = true;
-                            $booking_info = $reservation;
-                            break;
-                        }
-                    }
-                    ?>
-                    <div class="time-slot-card border-2 rounded-xl p-4 transition-all duration-300 transform hover:scale-105 <?php echo $is_booked ? 'bg-red-50 border-red-300 shadow-sm' : 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-300 hover:border-green-400 hover:shadow-md'; ?>">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="text-center">
-                                <span class="text-xl font-bold <?php echo $is_booked ? 'text-red-800' : 'text-green-800'; ?>">
-                                    <?php echo date('g:i A', strtotime($time_slot)); ?>
-                                </span>
-                                <div class="text-xs <?php echo $is_booked ? 'text-red-600' : 'text-green-600'; ?> font-medium">
-                                    <i class="fas fa-clock mr-1"></i>30 min slot
+            <?php endif; ?>
+            
+            <!-- Reviews List -->
+            <?php if (!empty($facility_ratings)): ?>
+                <div class="space-y-6">
+                    <?php foreach ($facility_ratings as $rating): ?>
+                        <div class="bg-white rounded-xl border border-gray-200 p-6">
+                            <div class="flex items-start justify-between mb-4">
+                                <div class="flex items-center">
+                                    <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold mr-3">
+                                        <?php echo strtoupper(substr($rating['is_anonymous'] ? 'Anonymous' : $rating['full_name'], 0, 1)); ?>
+                                    </div>
+                                    <div>
+                                        <h5 class="font-semibold text-gray-900">
+                                            <?php echo $rating['is_anonymous'] ? 'Anonymous User' : htmlspecialchars($rating['full_name']); ?>
+                                        </h5>
+                                        <div class="flex items-center">
+                                            <?php for ($i = 1; $i <= 5; $i++): ?>
+                                                <i class="fas fa-star text-xs <?php echo $i <= $rating['rating'] ? 'text-yellow-400' : 'text-gray-300'; ?>"></i>
+                                            <?php endfor; ?>
+                                            <span class="ml-2 text-xs text-gray-500"><?php echo date('M j, Y', strtotime($rating['created_at'])); ?></span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex items-center space-x-2">
+                                    <button class="vote-btn text-gray-400 hover:text-green-500 transition-colors" data-rating-id="<?php echo $rating['id']; ?>" data-vote-type="upvote">
+                                        <i class="fas fa-thumbs-up"></i>
+                                        <span class="ml-1 text-sm"><?php echo $rating['upvotes'] ?: 0; ?></span>
+                                    </button>
+                                    <button class="vote-btn text-gray-400 hover:text-red-500 transition-colors" data-rating-id="<?php echo $rating['id']; ?>" data-vote-type="downvote">
+                                        <i class="fas fa-thumbs-down"></i>
+                                        <span class="ml-1 text-sm"><?php echo $rating['downvotes'] ?: 0; ?></span>
+                                    </button>
                                 </div>
                             </div>
-                            <?php if ($is_booked): ?>
-                                <div class="availability-indicator">
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-red-100 text-red-800 border border-red-200">
-                                        <i class="fas fa-times mr-1"></i>Booked
-                                    </span>
-                                </div>
-                            <?php else: ?>
-                                <div class="availability-indicator">
-                                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
-                                        <i class="fas fa-check mr-1"></i>Available
-                                    </span>
+                            
+                            <?php if ($rating['review_title']): ?>
+                                <h6 class="font-semibold text-gray-900 mb-2"><?php echo htmlspecialchars($rating['review_title']); ?></h6>
+                            <?php endif; ?>
+                            
+                            <?php if ($rating['review_text']): ?>
+                                <p class="text-gray-700 leading-relaxed mb-4"><?php echo nl2br(htmlspecialchars($rating['review_text'])); ?></p>
+                            <?php endif; ?>
+                            
+                            <!-- Reply Form -->
+                            <div class="mt-4">
+                                <button class="reply-btn text-blue-600 hover:text-blue-700 text-sm font-medium" data-rating-id="<?php echo $rating['id']; ?>">
+                                    <i class="fas fa-reply mr-1"></i>Reply
+                                </button>
+                                
+                                <form class="reply-form hidden mt-3" data-rating-id="<?php echo $rating['id']; ?>">
+                                    <input type="hidden" name="action" value="submit_reply">
+                                    <input type="hidden" name="rating_id" value="<?php echo $rating['id']; ?>">
+                                    <textarea name="reply_text" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Write a reply..."></textarea>
+                                    <div class="mt-2 flex justify-end space-x-2">
+                                        <button type="button" class="cancel-reply-btn text-gray-600 hover:text-gray-700 text-sm">Cancel</button>
+                                        <button type="submit" class="bg-blue-600 text-white px-4 py-1 rounded text-sm hover:bg-blue-700">Reply</button>
+                                    </div>
+                                </form>
+                            </div>
+                            
+                            <!-- Replies -->
+                            <?php if (!empty($rating_replies[$rating['id']])): ?>
+                                <div class="mt-4 ml-6 space-y-3">
+                                    <?php foreach ($rating_replies[$rating['id']] as $reply): ?>
+                                        <div class="<?php echo $reply['is_facility_reply'] ? 'bg-blue-50 border-l-4 border-blue-400' : 'bg-gray-50'; ?> rounded-lg p-4">
+                                            <div class="flex items-start justify-between mb-2">
+                                                <div class="flex items-center">
+                                                    <div class="w-8 h-8 bg-gradient-to-br from-green-500 to-blue-600 rounded-full flex items-center justify-center text-white font-bold text-sm mr-2">
+                                                        <?php echo strtoupper(substr($reply['full_name'], 0, 1)); ?>
+                                                    </div>
+                                                    <div>
+                                                        <h6 class="font-medium text-gray-900 text-sm">
+                                                            <?php echo htmlspecialchars($reply['full_name']); ?>
+                                                            <?php if ($reply['is_facility_reply']): ?>
+                                                                <span class="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs ml-2">Staff</span>
+                                                            <?php endif; ?>
+                                                        </h6>
+                                                        <span class="text-xs text-gray-500"><?php echo date('M j, Y', strtotime($reply['created_at'])); ?></span>
+                                                    </div>
+                                                </div>
+                                                <div class="flex items-center space-x-2">
+                                                    <button class="vote-btn text-gray-400 hover:text-green-500 transition-colors" data-reply-id="<?php echo $reply['id']; ?>" data-vote-type="upvote">
+                                                        <i class="fas fa-thumbs-up text-xs"></i>
+                                                        <span class="ml-1 text-xs"><?php echo $reply['upvotes'] ?: 0; ?></span>
+                                                    </button>
+                                                    <button class="vote-btn text-gray-400 hover:text-red-500 transition-colors" data-reply-id="<?php echo $reply['id']; ?>" data-vote-type="downvote">
+                                                        <i class="fas fa-thumbs-down text-xs"></i>
+                                                        <span class="ml-1 text-xs"><?php echo $reply['downvotes'] ?: 0; ?></span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <p class="text-gray-700 text-sm"><?php echo nl2br(htmlspecialchars($reply['reply_text'])); ?></p>
+                                        </div>
+                                    <?php endforeach; ?>
                                 </div>
                             <?php endif; ?>
                         </div>
-                        <?php if ($is_booked && $booking_info): ?>
-                            <div class="space-y-2 text-sm">
-                                <div class="flex items-center space-x-2">
-                                    <i class="fas fa-user text-gray-400"></i>
-                                    <span class="text-gray-700 font-medium"><?php echo htmlspecialchars($booking_info['user_name']); ?></span>
-                                </div>
-                                <div class="flex items-center space-x-2">
-                                    <i class="fas fa-calendar-alt text-gray-400"></i>
-                                    <span class="text-gray-700"><?php echo htmlspecialchars($booking_info['purpose']); ?></span>
-                                </div>
-                                <div class="flex items-center space-x-2">
-                                    <i class="fas fa-clock text-gray-400"></i>
-                                    <span class="text-gray-700">
-                                        <?php echo date('g:i A', strtotime($booking_info['start_time'])); ?> - 
-                                        <?php echo date('g:i A', strtotime($booking_info['end_time'])); ?>
-                                    </span>
-                                </div>
-                                <div class="flex items-center space-x-2">
-                                    <i class="fas fa-info-circle text-gray-400"></i>
-                                    <span class="inline-flex px-2 py-1 text-xs font-semibold rounded-full 
-                                        <?php echo $booking_info['status'] === 'confirmed' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'; ?>">
-                                        <?php echo ucfirst($booking_info['status']); ?>
-                                    </span>
-                                </div>
-                            </div>
-                        <?php else: ?>
-                            <div class="text-center py-4">
-                                <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                                    <i class="fas fa-calendar-plus text-2xl text-green-600"></i>
-                                </div>
-                                <p class="text-sm font-medium text-green-700 mb-3">Available for booking</p>
-                                <!-- Quick booking options for this slot -->
-                                <div class="space-y-2">
-                                    <a href="reservation.php?facility_id=<?php echo $facility['id']; ?>&start_time=<?php echo $slot_start; ?>&end_time=<?php echo $slot_end; ?>&booking_type=hourly" 
-                                       class="block w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white text-center py-2 rounded-lg text-xs font-medium transition-all duration-200 transform hover:scale-105 shadow-sm booking-button">
-                                        <i class="fas fa-bolt mr-1"></i>Quick Book (30 min)
-                                    </a>
-                                    <?php
-                                    // Check if we can offer longer booking options
-                                    $slot_time = strtotime($time_slot);
-                                    $end_of_day = strtotime('21:30'); // Last slot is 9:30 PM
-                                    $remaining_hours = ($end_of_day - $slot_time) / 3600;
-                                    if ($remaining_hours >= 1) {
-                                        $one_hour_end = date('Y-m-d H:i:s', strtotime($slot_start . ' +1 hour'));
-                                        echo '<a href="reservation.php?facility_id=' . $facility['id'] . 
-                                             '&start_time=' . $slot_start . 
-                                             '&end_time=' . $one_hour_end . 
-                                             '&booking_type=hourly" 
-                                             class="block w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white text-center py-2 rounded-lg text-xs font-medium transition-all duration-200 transform hover:scale-105 shadow-sm booking-button">
-                                            <i class="fas fa-clock mr-1"></i>Book 1 Hour
-                                        </a>';
-                                    }
-                                    if ($remaining_hours >= 2) {
-                                        $two_hour_end = date('Y-m-d H:i:s', strtotime($slot_start . ' +2 hours'));
-                                        echo '<a href="reservation.php?facility_id=' . $facility['id'] . 
-                                             '&start_time=' . $slot_start . 
-                                             '&end_time=' . $two_hour_end . 
-                                             '&booking_type=hourly" 
-                                             class="block w-full bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white text-center py-2 rounded-lg text-xs font-medium transition-all duration-200 transform hover:scale-105 shadow-sm booking-button">
-                                            <i class="fas fa-clock mr-1"></i>Book 2 Hours
-                                        </a>';
-                                    }
-                                    ?>
-                                    <a href="reservation.php?facility_id=<?php echo $facility['id']; ?>&start_time=<?php echo $slot_start; ?>&end_time=<?php echo $slot_end; ?>&booking_type=hourly" 
-                                       class="block w-full bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white text-center py-2 rounded-lg text-xs font-medium transition-all duration-200 transform hover:scale-105 shadow-sm booking-button">
-                                        <i class="fas fa-cog mr-1"></i>Custom Time
-                                    </a>
-                                </div>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
-        <!-- Enhanced Legend -->
-        <div class="enhanced-card p-6 mt-8 animate-slide-up">
-            <div class="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
-                <h3 class="text-lg font-semibold text-gray-900">
-                    <i class="fas fa-info-circle mr-2 text-blue-600"></i>
-                    Understanding Time Slots
-                </h3>
-                <p class="text-sm text-gray-600 mt-1">Learn how to read the availability indicators</p>
-            </div>
-            <div class="p-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="flex items-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
-                        <div class="w-5 h-5 bg-green-500 rounded-full mr-4 shadow-sm"></div>
-                        <div>
-                            <span class="text-sm font-semibold text-green-800">Available</span>
-                            <p class="text-xs text-green-600">Ready to book • Click to reserve</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center p-4 bg-gradient-to-r from-red-50 to-red-100 rounded-xl border border-red-200">
-                        <div class="w-5 h-5 bg-red-500 rounded-full mr-4 shadow-sm"></div>
-                        <div>
-                            <span class="text-sm font-semibold text-red-800">Booked</span>
-                            <p class="text-xs text-red-600">Not available • Reserved by others</p>
-                        </div>
-                    </div>
-                    <div class="flex items-center p-4 bg-gradient-to-r from-yellow-50 to-amber-100 rounded-xl border border-yellow-200">
-                        <div class="w-5 h-5 bg-yellow-500 rounded-full mr-4 shadow-sm"></div>
-                        <div>
-                            <span class="text-sm font-semibold text-yellow-800">Pending</span>
-                            <p class="text-xs text-yellow-600">Awaiting confirmation</p>
-                        </div>
-                    </div>
+                    <?php endforeach; ?>
                 </div>
-                
-                <!-- Additional Information -->
-                <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div class="flex items-start">
-                        <i class="fas fa-lightbulb text-blue-500 mt-1 mr-3"></i>
-                        <div>
-                            <h4 class="text-sm font-semibold text-blue-800 mb-2">Booking Tips</h4>
-                            <ul class="text-xs text-blue-700 space-y-1">
-                                <li>• Time slots are in 30-minute intervals</li>
-                                <li>• You can book multiple consecutive slots</li>
-                                <li>• Last booking ends at 9:30 PM (facility closes at 10:00 PM)</li>
-                                <li>• Quick booking options available for common durations</li>
-                            </ul>
-                        </div>
-                        </div>
-                    </div>
+            <?php else: ?>
+                <div class="text-center py-8 text-gray-500">
+                    <i class="fas fa-comments text-4xl mb-4"></i>
+                    <p>No reviews yet. Be the first to share your experience!</p>
                 </div>
-            </div>
+            <?php endif; ?>
         </div>
     </div>
+    
     <!-- Floating Action Button -->
     <?php if ($_SESSION['role'] !== 'admin' && !$facility['is_currently_closed']): ?>
     <div class="floating-action">
@@ -1588,7 +1639,7 @@ for ($hour = $start_hour; $hour <= $end_hour; $hour++) {
                     e.preventDefault();
                     const poId = getSelectedPricingId();
                     if (!poId) {
-                        alert('Please select a pricing package first.');
+                        alert('Please select a pricing first.');
                         return;
                     }
                     const baseUrl = 'reservation.php?facility_id=<?php echo $facility['id']; ?>';
@@ -1649,6 +1700,185 @@ for ($hour = $start_hour; $hour <= $end_hour; $hour++) {
                 });
                 card.addEventListener('mouseleave', function() {
                     this.style.transform = 'translateY(0) scale(1)';
+                });
+            });
+        });
+        
+        // Rating System JavaScript
+        document.addEventListener('DOMContentLoaded', function() {
+            // Star rating functionality
+            const starButtons = document.querySelectorAll('.star-btn');
+            const ratingInput = document.getElementById('ratingInput');
+            
+            if (starButtons.length > 0 && ratingInput) {
+                starButtons.forEach((star, index) => {
+                    star.addEventListener('click', function() {
+                        const rating = parseInt(this.dataset.rating);
+                        ratingInput.value = rating;
+                        
+                        // Update star display
+                        starButtons.forEach((s, i) => {
+                            if (i < rating) {
+                                s.classList.remove('text-gray-300');
+                                s.classList.add('text-yellow-400');
+                            } else {
+                                s.classList.remove('text-yellow-400');
+                                s.classList.add('text-gray-300');
+                            }
+                        });
+                    });
+                    
+                    star.addEventListener('mouseenter', function() {
+                        const rating = parseInt(this.dataset.rating);
+                        starButtons.forEach((s, i) => {
+                            if (i < rating) {
+                                s.classList.remove('text-gray-300');
+                                s.classList.add('text-yellow-400');
+                            } else {
+                                s.classList.remove('text-yellow-400');
+                                s.classList.add('text-gray-300');
+                            }
+                        });
+                    });
+                });
+                
+                // Reset stars on mouse leave
+                document.getElementById('starRating').addEventListener('mouseleave', function() {
+                    const currentRating = parseInt(ratingInput.value);
+                    starButtons.forEach((s, i) => {
+                        if (i < currentRating) {
+                            s.classList.remove('text-gray-300');
+                            s.classList.add('text-yellow-400');
+                        } else {
+                            s.classList.remove('text-yellow-400');
+                            s.classList.add('text-gray-300');
+                        }
+                    });
+                });
+            }
+            
+            // Reply functionality
+            const replyButtons = document.querySelectorAll('.reply-btn');
+            const cancelButtons = document.querySelectorAll('.cancel-reply-btn');
+            
+            replyButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const ratingId = this.dataset.ratingId;
+                    const form = document.querySelector(`.reply-form[data-rating-id="${ratingId}"]`);
+                    if (form) {
+                        form.classList.remove('hidden');
+                        this.style.display = 'none';
+                    }
+                });
+            });
+            
+            cancelButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const form = this.closest('.reply-form');
+                    const ratingId = form.dataset.ratingId;
+                    const replyBtn = document.querySelector(`.reply-btn[data-rating-id="${ratingId}"]`);
+                    
+                    form.classList.add('hidden');
+                    if (replyBtn) replyBtn.style.display = 'inline-flex';
+                    form.querySelector('textarea').value = '';
+                });
+            });
+            
+            // Vote functionality
+            const voteButtons = document.querySelectorAll('.vote-btn');
+            
+            voteButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const ratingId = this.dataset.ratingId;
+                    const replyId = this.dataset.replyId;
+                    const voteType = this.dataset.voteType;
+                    
+                    // Disable button temporarily to prevent double-clicks
+                    this.disabled = true;
+                    
+                    // Send vote request
+                    fetch('', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: new URLSearchParams({
+                            'action': 'vote_feedback',
+                            'rating_id': ratingId || '',
+                            'reply_id': replyId || '',
+                            'vote_type': voteType
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Update vote count display
+                            const countSpan = this.querySelector('span');
+                            const currentCount = parseInt(countSpan.textContent) || 0;
+                            countSpan.textContent = currentCount + 1;
+                            
+                            // Visual feedback
+                            this.classList.add(voteType === 'upvote' ? 'text-green-500' : 'text-red-500');
+                            setTimeout(() => {
+                                this.classList.remove('text-green-500', 'text-red-500');
+                                this.disabled = false;
+                            }, 1000);
+                        } else {
+                            alert('Failed to vote. Please try again.');
+                            this.disabled = false;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Failed to vote. Please try again.');
+                        this.disabled = false;
+                    });
+                });
+            });
+            
+            // Form validation
+            const ratingForm = document.querySelector('form[action=""]');
+            if (ratingForm) {
+                ratingForm.addEventListener('submit', function(e) {
+                    const rating = parseInt(ratingInput.value);
+                    if (rating < 1 || rating > 5) {
+                        e.preventDefault();
+                        alert('Please select a rating between 1 and 5 stars.');
+                        return false;
+                    }
+                });
+            }
+            
+            // Reply form submission
+            const replyForms = document.querySelectorAll('.reply-form');
+            replyForms.forEach(form => {
+                form.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const formData = new FormData(this);
+                    const replyText = formData.get('reply_text').trim();
+                    
+                    if (!replyText) {
+                        alert('Please enter a reply.');
+                        return;
+                    }
+                    
+                    // Submit reply
+                    fetch('', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            location.reload(); // Reload to show new reply
+                        } else {
+                            alert('Failed to submit reply. Please try again.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Failed to submit reply. Please try again.');
+                    });
                 });
             });
         });

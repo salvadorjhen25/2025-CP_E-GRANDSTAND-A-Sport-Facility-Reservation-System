@@ -191,20 +191,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $placeholders = implode(',', array_fill(0, count($pricing_option_ids), '?'));
             $params = $pricing_option_ids;
             $params[] = $facility_id;
-            $stmt = $pdo->prepare("SELECT * FROM facility_pricing_options WHERE id IN ($placeholders) AND facility_id = ? AND is_active = 1");
+            $stmt = $pdo->prepare("SELECT id, name, description, pricing_type, price_per_unit, price_per_hour FROM facility_pricing_options WHERE id IN ($placeholders) AND facility_id = ? AND is_active = 1");
             $stmt->execute($params);
             $selected_options = $stmt->fetchAll();
             if (count($selected_options) !== count($pricing_option_ids)) {
-                $errors[] = 'One or more selected packages are invalid.';
+                $errors[] = 'One or more selected options are invalid.';
             } else {
                 foreach ($selected_options as $opt) {
-                    $total_amount += (float)$opt['price_per_hour'];
+                    // Calculate cost based on pricing type
+                    $option_price = 0;
+                    switch ($opt['pricing_type']) {
+                        case 'hour':
+                            $option_price = (float)($opt['price_per_unit'] ?: $opt['price_per_hour'] ?: 0) * $hours;
+                            break;
+                        case 'day':
+                            $option_price = (float)($opt['price_per_unit'] ?: $opt['price_per_hour'] ?: 0);
+                            break;
+                        case 'session':
+                            $option_price = (float)($opt['price_per_unit'] ?: $opt['price_per_hour'] ?: 0);
+                            break;
+                        default:
+                            $option_price = (float)($opt['price_per_unit'] ?: $opt['price_per_hour'] ?: 0) * $hours;
+                    }
+                    
+                    $total_amount += $option_price;
                     $pricing_selections[] = [
                         'pricing_option_id' => (int)$opt['id'],
                         'name' => $opt['name'],
-                        'price' => (float)$opt['price_per_hour'],
+                        'price' => $option_price,
                         'quantity' => 1,
-                        'pricing_type' => 'flat_addon'
+                        'pricing_type' => $opt['pricing_type'] ?: 'hour',
+                        'unit_price' => (float)($opt['price_per_unit'] ?: $opt['price_per_hour'] ?: 0)
                     ];
                 }
             }
@@ -312,7 +329,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 // Get pricing options for this facility
 try {
     $stmt = $pdo->prepare("
-        SELECT * FROM facility_pricing_options 
+        SELECT id, name, description, pricing_type, price_per_unit, price_per_hour, is_active, sort_order 
+        FROM facility_pricing_options 
         WHERE facility_id = ? AND is_active = 1 
         ORDER BY sort_order ASC, name ASC
     ");
@@ -346,6 +364,8 @@ $existing_reservations = $stmt->fetchAll();
     <link rel="stylesheet" href="assets/css/enhanced-ui.css">
     <link rel="stylesheet" href="assets/css/mobile-responsive.css?v=1.0.0">
     <script src="assets/js/modal-system.js"></script>
+    <!-- Add the new calendar.js file -->
+    <script src="assets/js/calendar.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -467,6 +487,13 @@ $existing_reservations = $stmt->fetchAll();
             color: #9ca3af;
             cursor: not-allowed;
             opacity: 0.6;
+        }
+        
+        /* Fix for selected date visibility in calendar modal */
+        #monthlyCalendar button[data-selected-date],
+        #monthlyCalendar button.ring-purple-400 {
+            color: #581c87 !important;
+            font-weight: 700 !important;
         }
         
         /* Enhanced time slot animations */
@@ -1601,7 +1628,7 @@ $existing_reservations = $stmt->fetchAll();
                                         </div>
                                     </div>
                                     <div class="text-right">
-                                        <div class="font-bold text-purple-700 text-sm">₱<?php echo number_format($option['price_per_hour'], 2); ?></div>
+                                        <div class="font-bold text-purple-700 text-sm">₱<?php echo number_format($option['price_per_unit'] ?: $option['price_per_hour'] ?: 0, 2); ?></div>
                                     </div>
                                 </div>
                                 <?php endforeach; ?>
@@ -1709,16 +1736,62 @@ $existing_reservations = $stmt->fetchAll();
                         </div>
                         <!-- Enhanced Date and Time Selection -->
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <!-- Booking Date (via Modal) -->
+                            <!-- Enhanced Booking Date (via Modal) -->
                             <div>
-                                <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center justify-between mb-3">
                                     <span class="block text-sm font-medium text-gray-700"><i class="fas fa-calendar mr-2"></i>Booking Date</span>
-                                    <button type="button" id="openCalendarModal" class="text-xs bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-md shadow"><i class="fas fa-calendar-alt mr-1"></i>Open Calendar</button>
                                 </div>
-                                <div class="w-full border border-gray-200 rounded-lg px-4 py-3 bg-gray-50 text-gray-700 flex items-center justify-between">
-                                    <span id="booking_date_display" class="text-sm font-medium">Please select a date from the calendar</span>
-                                    <span class="ml-3 inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-700"><i class="fas fa-info-circle mr-1"></i>Modal calendar only</span>
+                                
+                                <!-- Enhanced Calendar Button with Date Display -->
+                                <button type="button" id="openCalendarModal" class="w-full group relative overflow-hidden bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-600 hover:from-blue-600 hover:via-purple-600 hover:to-indigo-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-2 border-transparent hover:border-white/20">
+                                    <!-- Animated Background -->
+                                    <div class="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
+                                    
+                                    <!-- Button Content -->
+                                    <div class="relative z-10 p-4 flex items-center justify-between">
+                                        <div class="flex items-center space-x-3">
+                                            <!-- Calendar Icon -->
+                                            <div class="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center group-hover:bg-white/30 transition-all duration-300 group-hover:scale-110">
+                                                <i class="fas fa-calendar-alt text-xl"></i>
+                                            </div>
+                                            
+                                            <!-- Date Display -->
+                                            <div class="text-left">
+                                                <div class="text-sm font-medium opacity-90">Select Booking Date</div>
+                                                <div id="booking_date_display" class="text-lg font-bold">Choose a date</div>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Arrow Icon -->
+                                        <div class="flex items-center space-x-2">
+                                            <div class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center group-hover:bg-white/30 transition-all duration-300">
+                                                <i class="fas fa-chevron-right group-hover:translate-x-1 transition-transform duration-300"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Bottom Info -->
+                                    <div class="relative z-10 px-4 pb-3">
+                                        <div class="flex items-center justify-center space-x-2 text-xs opacity-80">
+                                            <i class="fas fa-info-circle"></i>
+                                            <span>Click to open calendar</span>
+                                        </div>
+                                    </div>
+                                </button>
+                                
+                                <!-- Selected Date Summary (shown when date is selected) -->
+                                <div id="selected_date_summary" class="hidden mt-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+                                    <div class="flex items-center space-x-2">
+                                        <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+                                            <i class="fas fa-check text-white text-sm"></i>
+                                        </div>
+                                        <div>
+                                            <div class="text-sm font-medium text-green-800">Date Selected</div>
+                                            <div id="selected_date_display" class="text-xs text-green-600"></div>
+                                        </div>
+                                    </div>
                                 </div>
+                                
                                 <input type="hidden" id="booking_date" name="booking_date">
                             </div>
                             <!-- Duration (for display only) -->
@@ -1957,28 +2030,30 @@ $existing_reservations = $stmt->fetchAll();
                                             <i class="fas fa-tags text-white text-xl"></i>
                                     </div>
                                     <div>
-                                            <h3 class="text-xl font-bold text-purple-800 mb-1">Choose Your Pricing Package</h3>
+                                            <h3 class="text-xl font-bold text-purple-800 mb-1">Choose Your Pricing</h3>
                                             <p class="text-sm text-purple-600">Select the option that best fits your needs</p>
                                     </div>
                                 </div>
                                     <div class="text-right">
                                         <div class="bg-white/60 px-4 py-2 rounded-lg shadow-inner">
                                             <div class="text-sm font-bold text-purple-800">Available Options</div>
-                                            <div class="text-lg font-black text-purple-600"><?php echo count($pricing_options); ?> Packages</div>
+                                            <div class="text-lg font-black text-purple-600"><?php echo count($pricing_options); ?> Options</div>
                                 </div>
                             </div>
                             </div>
                                 </div>
                             
                             <label class="block text-sm font-medium text-gray-700 mb-4">
-                                <i class="fas fa-tag mr-2"></i>Select Pricing Packages (multiple allowed)
+                                <i class="fas fa-tag mr-2"></i>Select Pricing Options (multiple allowed)
                             </label>
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 <?php foreach ($pricing_options as $index => $option): ?>
                                 <label class="relative cursor-pointer pricing-option-label group">
                                     <input type="checkbox" name="pricing_option_ids[]" value="<?php echo $option['id']; ?>" 
                                            class="pricing-option-checkbox absolute top-3 right-3 w-5 h-5 accent-purple-600 rounded border-2 border-purple-400 shadow bg-white cursor-pointer"
-                                           data-price="<?php echo $option['price_per_hour']; ?>" data-name="<?php echo htmlspecialchars($option['name'], ENT_QUOTES); ?>">
+                                           data-price="<?php echo $option['price_per_unit'] ?: $option['price_per_hour'] ?: 0; ?>" 
+                                           data-name="<?php echo htmlspecialchars($option['name'], ENT_QUOTES); ?>"
+                                           data-pricing-type="<?php echo $option['pricing_type'] ?: 'hour'; ?>">
                                     <div class="pricing-option-card border-2 border-gray-300 rounded-xl p-6 text-center hover:border-purple-500 transition-all duration-300 relative group-hover:shadow-lg group-hover:scale-105" data-option-id="<?php echo $option['id']; ?>">
                                         
                                         <!-- Package icon -->
@@ -1995,7 +2070,20 @@ $existing_reservations = $stmt->fetchAll();
                                         </div>
                                         
                                         <!-- Price -->
-                                        <div class="text-xl font-bold text-purple-600 mb-2">₱<?php echo number_format($option['price_per_hour'], 2); ?></div>
+                                        <div class="text-xl font-bold text-purple-600 mb-2">
+                                            ₱<?php echo number_format($option['price_per_unit'] ?: $option['price_per_hour'] ?: 0, 2); ?>
+                                            <div class="text-xs text-gray-500 font-normal">
+                                                <?php 
+                                                $pricing_type = $option['pricing_type'] ?: 'hour';
+                                                switch($pricing_type) {
+                                                    case 'hour': echo 'per hour'; break;
+                                                    case 'day': echo 'per day'; break;
+                                                    case 'session': echo 'per session'; break;
+                                                    default: echo 'per hour';
+                                                }
+                                                ?>
+                                            </div>
+                                        </div>
                                         
                                         <!-- Features indicator -->
                                         <div class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
@@ -2017,15 +2105,15 @@ $existing_reservations = $stmt->fetchAll();
                                         <div class="text-sm text-blue-700 space-y-1">
                                             <div class="flex items-center">
                                                 <i class="fas fa-check-circle mr-2 text-green-500"></i>
-                                                <span>Choose the package that best fits your event needs</span>
+                                                <span>Choose the options that best fits your event needs</span>
                                             </div>
                                             <div class="flex items-center">
                                                 <i class="fas fa-check-circle mr-2 text-green-500"></i>
-                                                <span>All packages include basic facility access</span>
+                                                <span>All options include basic facility access</span>
                                             </div>
                                             <div class="flex items-center">
                                                 <i class="fas fa-check-circle mr-2 text-green-500"></i>
-                                                <span>Premium packages may include additional amenities</span>
+                                                <span>Premium options may include additional amenities</span>
                                             </div>
                                             <div class="flex items-center">
                                                 <i class="fas fa-check-circle mr-2 text-green-500"></i>
@@ -2127,15 +2215,15 @@ $existing_reservations = $stmt->fetchAll();
                                             <span id="rateDisplay" class="font-bold text-gray-800 bg-white px-4 py-2 rounded-full text-base border border-green-200"></span>
                                         </div>
                                         <div class="flex justify-between items-center p-4 bg-white/50 rounded-xl border border-green-200">
-                                            <span class="text-gray-700 font-semibold text-base">Package Cost:</span>
+                                            <span class="text-gray-700 font-semibold text-base">Options Cost:</span>
                                             <span id="packageCostDisplay" class="font-bold text-purple-700 bg-white px-4 py-2 rounded-full text-base border border-purple-200"></span>
                                         </div>
                                         <div class="flex justify-between items-center p-4 bg-white/50 rounded-xl border border-green-200">
-                                            <span class="text-gray-700 font-semibold text-base">Package:</span>
+                                            <span class="text-gray-700 font-semibold text-base">Option:</span>
                                             <span id="packageDisplay" class="font-bold text-purple-700 bg-white px-4 py-2 rounded-full text-base border border-purple-200"></span>
                                         </div>
                                         <div class="p-4 bg-white/50 rounded-xl border border-green-200">
-                                            <div class="text-gray-700 font-semibold text-base mb-2">Selected Packages:</div>
+                                            <div class="text-gray-700 font-semibold text-base mb-2">Selected Options:</div>
                                             <div id="packageList" class="flex flex-wrap gap-2"></div>
                                         </div>
                                     </div>
@@ -2198,7 +2286,7 @@ $existing_reservations = $stmt->fetchAll();
 
         <!-- Enhanced Compact Calendar Modal -->
         <div id="calendarModal" class="fixed inset-0 bg-black bg-opacity-60 z-50 hidden backdrop-blur-sm">
-            <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="flex items-center justify-end min-h-screen p-4 pr-8">
                 <div class="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[80vh] overflow-hidden transform transition-all duration-300 scale-95 opacity-0 flex flex-col" id="calendarModalContent">
                     <!-- Compact Header -->
                     <div class="p-4 border-b bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white">
@@ -2221,8 +2309,33 @@ $existing_reservations = $stmt->fetchAll();
                     <div class="grid grid-cols-1 lg:grid-cols-2 gap-0 h-full flex-1 overflow-hidden">
                         <!-- Compact Calendar Section -->
                         <div class="p-4 overflow-y-auto bg-gradient-to-br from-gray-50 to-blue-50">
-                            <div class="flex items-center justify-center mb-4">
-                                <div id="calMonthLabel" class="text-lg font-bold text-gray-800 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200"></div>
+                            <!-- Calendar Navigation -->
+                            <div class="flex items-center justify-between mb-4">
+                                <!-- Previous Year Button -->
+                                <button id="calPrevYear" class="w-10 h-10 bg-white hover:bg-blue-50 rounded-lg shadow-sm border border-gray-200 flex items-center justify-center transition-all duration-200 hover:scale-110 group">
+                                    <i class="fas fa-angle-double-left text-gray-600 group-hover:text-blue-600"></i>
+                                </button>
+                                
+                                <!-- Previous Month Button -->
+                                <button id="calPrevMonth" class="w-10 h-10 bg-white hover:bg-blue-50 rounded-lg shadow-sm border border-gray-200 flex items-center justify-center transition-all duration-200 hover:scale-110 group">
+                                    <i class="fas fa-angle-left text-gray-600 group-hover:text-blue-600"></i>
+                                </button>
+                                
+                                <!-- Month/Year Label -->
+                                <div class="flex flex-col items-center">
+                                    <div id="calMonthLabel" class="text-lg font-bold text-gray-800 bg-white px-4 py-2 rounded-lg shadow-sm border border-gray-200"></div>
+                                    <div id="calYearLabel" class="text-sm text-gray-600 mt-1"></div>
+                                </div>
+                                
+                                <!-- Next Month Button -->
+                                <button id="calNextMonth" class="w-10 h-10 bg-white hover:bg-blue-50 rounded-lg shadow-sm border border-gray-200 flex items-center justify-center transition-all duration-200 hover:scale-110 group">
+                                    <i class="fas fa-angle-right text-gray-600 group-hover:text-blue-600"></i>
+                                </button>
+                                
+                                <!-- Next Year Button -->
+                                <button id="calNextYear" class="w-10 h-10 bg-white hover:bg-blue-50 rounded-lg shadow-sm border border-gray-200 flex items-center justify-center transition-all duration-200 hover:scale-110 group">
+                                    <i class="fas fa-angle-double-right text-gray-600 group-hover:text-blue-600"></i>
+                                </button>
                             </div>
                             
                             <!-- Compact Day Headers -->
@@ -2271,14 +2384,7 @@ $existing_reservations = $stmt->fetchAll();
             </div>
         </div>
     </div>
-    <!-- Floating Action Button -->
-    <div class="floating-action">
-        <a href="my_reservations.php" 
-           class="w-16 h-16 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 flex items-center justify-center transform hover:scale-110"
-           title="View My Reservations">
-            <i class="fas fa-calendar-alt text-xl"></i>
-        </a>
-    </div>
+   
     
     <!-- Add More Floating Button (hidden by default) -->
     <div id="add-more-floating-btn" class="fixed bottom-24 right-6 z-40 hidden">
@@ -2571,7 +2677,7 @@ $existing_reservations = $stmt->fetchAll();
                         });
                         
                         // Add selection styling
-                        cell.classList.add('ring-4', 'ring-purple-400', 'bg-purple-100', 'border-purple-400');
+                        cell.classList.add('ring-4', 'ring-purple-400', 'bg-purple-100', 'border-purple-400', 'text-purple-900', 'font-bold');
                         cell.classList.remove('bg-white', 'border-gray-200');
                         
                         // Update labels
@@ -2678,11 +2784,34 @@ $existing_reservations = $stmt->fetchAll();
                         const indicator = card ? card.querySelector('.pricing-selection-indicator') : null;
                         const icon = card ? card.querySelector('.w-16.h-16') : null;
                         if (cb.checked) {
-                            const price = parseFloat(cb.dataset.price) || 0;
+                            const unitPrice = parseFloat(cb.dataset.price) || 0;
+                            const pricingType = cb.dataset.pricingType || 'hour';
                             const name = cb.dataset.name || '';
-                            selectedPackageFlatCost += price;
+                            
+                            // Calculate cost based on pricing type
+                            let calculatedPrice = unitPrice;
+                            if (pricingType === 'hour') {
+                                // For hourly pricing, multiply by duration
+                                const startTime = startTimeInputField?.value;
+                                const endTime = endTimeInputField?.value;
+                                if (startTime && endTime) {
+                                    const start = new Date(`2000-01-01T${startTime}`);
+                                    const end = new Date(`2000-01-01T${endTime}`);
+                                    const durationHours = (end - start) / (1000 * 60 * 60);
+                                    calculatedPrice = unitPrice * durationHours;
+                                }
+                            }
+                            // For 'day' and 'session', use flat price
+                            
+                            selectedPackageFlatCost += calculatedPrice;
                             names.push(name);
-                            selectedPricingOptions.push({ id: cb.value, name, price });
+                            selectedPricingOptions.push({ 
+                                id: cb.value, 
+                                name, 
+                                price: calculatedPrice,
+                                unitPrice: unitPrice,
+                                pricingType: pricingType
+                            });
                             if (card) card.classList.add('border-purple-500', 'bg-purple-50', 'shadow-lg', 'scale-105');
                             if (indicator) indicator.style.opacity = '1';
                             if (icon) { icon.classList.remove('shadow-lg'); icon.classList.add('shadow-xl'); }
@@ -3008,7 +3137,7 @@ $existing_reservations = $stmt->fetchAll();
                  
                  // Check if this date is currently selected
                  const isSelected = bookingDateInput.value === dateString;
-                const selectedClass = isSelected ? 'ring-4 ring-purple-500 shadow-lg bg-gradient-to-br from-purple-50 to-purple-100' : '';
+                const selectedClass = isSelected ? 'ring-4 ring-purple-500 shadow-lg bg-gradient-to-br from-purple-50 to-purple-100 text-purple-900 font-bold' : '';
                  
                  calendarHTML += `
                     <button class="px-3 py-2 rounded-full text-xs font-semibold ${availabilityClass} ${todayClass} ${selectedClass} cursor-pointer hover:opacity-80 transition" 
@@ -3097,24 +3226,52 @@ $existing_reservations = $stmt->fetchAll();
                 monthlyCalendar.innerHTML = '';
                 const year = date.getFullYear();
                 const month = date.getMonth();
-                calMonthLabel.textContent = date.toLocaleString('en-US', { month:'long', year:'numeric' });
+                calMonthLabel.textContent = date.toLocaleString('en-US', { month:'long' });
+                
+                // Update year label
+                const calYearLabel = document.getElementById('calYearLabel');
+                if (calYearLabel) {
+                    calYearLabel.textContent = year;
+                }
+                
                 const first = new Date(year, month, 1);
                 const startWeekday = first.getDay();
                 const daysInMonth = new Date(year, month+1, 0).getDate();
                 for (let i=0;i<startWeekday;i++){ const pad = document.createElement('div'); monthlyCalendar.appendChild(pad); }
                 for (let d=1; d<=daysInMonth; d++) {
                     const cell = document.createElement('button');
-                    cell.className = 'p-3 rounded-lg border text-sm text-gray-700 hover:bg-blue-50 hover:border-blue-300 transition';
-                    cell.textContent = d;
                     const cellDate = new Date(year, month, d);
                     const ymd = formatYMD(cellDate);
-                    // Today marker
-                    if (formatYMD(new Date()) === ymd) {
-                        cell.classList.add('border-blue-400');
+                    const today = new Date();
+                    const todayYMD = formatYMD(today);
+                    
+                    // Check if this date is in the past
+                    const isPastDate = ymd < todayYMD;
+                    
+                    if (isPastDate) {
+                        // Disable past dates
+                        cell.className = 'p-3 rounded-lg border text-sm text-gray-400 bg-gray-100 cursor-not-allowed border-gray-200';
+                        cell.disabled = true;
                     } else {
+                        // Enable future dates
+                        cell.className = 'p-3 rounded-lg border text-sm text-gray-700 hover:bg-blue-50 hover:border-blue-300 transition';
+                        cell.disabled = false;
+                    }
+                    
+                    cell.textContent = d;
+                    
+                    // Today marker
+                    if (ymd === todayYMD) {
+                        cell.classList.add('border-blue-400', 'bg-blue-50');
+                    } else if (!isPastDate) {
                         cell.classList.add('border-gray-200');
                     }
                     cell.addEventListener('click', () => {
+                        // Prevent clicking on disabled (past) dates
+                        if (cell.disabled) {
+                            return;
+                        }
+                        
                         calSelected = cellDate;
                         
                         // Create date display
@@ -3153,6 +3310,14 @@ $existing_reservations = $stmt->fetchAll();
                 const bookingDateDisplay = document.getElementById('booking_date_display');
                 if (bookingDateDisplay) {
                     bookingDateDisplay.textContent = dateDisplay;
+                }
+                
+                // Show selected date summary
+                const selectedDateSummary = document.getElementById('selected_date_summary');
+                const selectedDateDisplay = document.getElementById('selected_date_display');
+                if (selectedDateSummary && selectedDateDisplay) {
+                    selectedDateDisplay.textContent = dateDisplay;
+                    selectedDateSummary.classList.remove('hidden');
                 }
                 
                 // Close the calendar modal
@@ -3284,6 +3449,14 @@ $existing_reservations = $stmt->fetchAll();
                 const bookingDateDisplay = document.getElementById('booking_date_display');
                 if (bookingDateDisplay) {
                     bookingDateDisplay.textContent = dateDisplay;
+                }
+                
+                // Show selected date summary
+                const selectedDateSummary = document.getElementById('selected_date_summary');
+                const selectedDateDisplay = document.getElementById('selected_date_display');
+                if (selectedDateSummary && selectedDateDisplay) {
+                    selectedDateDisplay.textContent = dateDisplay;
+                    selectedDateSummary.classList.remove('hidden');
                 }
                 
                 // Close the popup
@@ -3552,15 +3725,126 @@ $existing_reservations = $stmt->fetchAll();
                 dayDetails.appendChild(availableSection);
             }
 
+            // Function to setup navigation buttons
+            function setupNavigationButtons() {
+                console.log('=== SETUP NAVIGATION BUTTONS START ===');
+                
+                const calPrevMonth = document.getElementById('calPrevMonth');
+                const calNextMonth = document.getElementById('calNextMonth');
+                const calPrevYear = document.getElementById('calPrevYear');
+                const calNextYear = document.getElementById('calNextYear');
+                
+                console.log('Navigation buttons found:', {
+                    calPrevMonth: calPrevMonth,
+                    calNextMonth: calNextMonth,
+                    calPrevYear: calPrevYear,
+                    calNextYear: calNextYear
+                });
+                
+                console.log('calCurrent value:', calCurrent);
+                console.log('renderMonth function:', typeof renderMonth);
+                
+                // Test if buttons are clickable
+                if (calPrevMonth) {
+                    console.log('Setting up calPrevMonth...');
+                    calPrevMonth.onclick = function(e) {
+                        console.log('PREVIOUS MONTH CLICKED!', e);
+                        e.preventDefault();
+                        e.stopPropagation();
+                        try {
+                            calCurrent.setMonth(calCurrent.getMonth()-1);
+                            console.log('Updated calCurrent to:', calCurrent);
+                            renderMonth(calCurrent);
+                            console.log('renderMonth called successfully');
+                        } catch (error) {
+                            console.error('Error in previous month:', error);
+                        }
+                    };
+                    console.log('calPrevMonth onclick set');
+                } else {
+                    console.error('calPrevMonth not found!');
+                }
+                
+                if (calNextMonth) {
+                    console.log('Setting up calNextMonth...');
+                    calNextMonth.onclick = function(e) {
+                        console.log('NEXT MONTH CLICKED!', e);
+                        e.preventDefault();
+                        e.stopPropagation();
+                        try {
+                            calCurrent.setMonth(calCurrent.getMonth()+1);
+                            console.log('Updated calCurrent to:', calCurrent);
+                            renderMonth(calCurrent);
+                            console.log('renderMonth called successfully');
+                        } catch (error) {
+                            console.error('Error in next month:', error);
+                        }
+                    };
+                    console.log('calNextMonth onclick set');
+                } else {
+                    console.error('calNextMonth not found!');
+                }
+                
+                if (calPrevYear) {
+                    console.log('Setting up calPrevYear...');
+                    calPrevYear.onclick = function(e) {
+                        console.log('PREVIOUS YEAR CLICKED!', e);
+                        e.preventDefault();
+                        e.stopPropagation();
+                        try {
+                            calCurrent.setFullYear(calCurrent.getFullYear()-1);
+                            console.log('Updated calCurrent to:', calCurrent);
+                            renderMonth(calCurrent);
+                            console.log('renderMonth called successfully');
+                        } catch (error) {
+                            console.error('Error in previous year:', error);
+                        }
+                    };
+                    console.log('calPrevYear onclick set');
+                } else {
+                    console.error('calPrevYear not found!');
+                }
+                
+                if (calNextYear) {
+                    console.log('Setting up calNextYear...');
+                    calNextYear.onclick = function(e) {
+                        console.log('NEXT YEAR CLICKED!', e);
+                        e.preventDefault();
+                        e.stopPropagation();
+                        try {
+                            calCurrent.setFullYear(calCurrent.getFullYear()+1);
+                            console.log('Updated calCurrent to:', calCurrent);
+                            renderMonth(calCurrent);
+                            console.log('renderMonth called successfully');
+                        } catch (error) {
+                            console.error('Error in next year:', error);
+                        }
+                    };
+                    console.log('calNextYear onclick set');
+                } else {
+                    console.error('calNextYear not found!');
+                }
+                
+                console.log('=== SETUP NAVIGATION BUTTONS END ===');
+            }
+
             // Ensure calendar days are rendered as soon as script loads
             try { if (monthlyCalendar) { renderMonth(calCurrent); } } catch (e) { console.error('Calendar render error', e); }
 
             if (openCalBtn && calendarModal) {
                 openCalBtn.addEventListener('click', () => {
+                    console.log('=== CALENDAR MODAL OPENING ===');
                     calendarModal.classList.remove('hidden');
                     // Always show current month days automatically
                     calCurrent = new Date();
+                    console.log('calCurrent set to:', calCurrent);
                     renderMonth(calCurrent);
+                    console.log('Initial renderMonth called');
+                    
+                    // Setup navigation buttons when modal opens (ensures buttons exist)
+                    console.log('About to call setupNavigationButtons...');
+                    setupNavigationButtons();
+                    console.log('setupNavigationButtons completed');
                 });
             }
             if (closeCalBtn && calendarModal) {
@@ -3569,9 +3853,10 @@ $existing_reservations = $stmt->fetchAll();
             }
             const calPrev = document.getElementById('calPrev');
             const calNext = document.getElementById('calNext');
-            // Hide navigation - always show current month
-            if (calPrev) calPrev.classList.add('hidden');
-            if (calNext) calNext.classList.add('hidden');
+            // Enable navigation to allow booking next year and next month
+            if (calPrev) calPrev.classList.remove('hidden');
+            if (calNext) calNext.classList.remove('hidden');
+            
             if (confirmCalBtn) {
                 confirmCalBtn.addEventListener('click', () => {
                     if (!calSelected) return;
@@ -3579,6 +3864,14 @@ $existing_reservations = $stmt->fetchAll();
                     if (bookingDateInputEl) bookingDateInputEl.value = ymd;
                     const disp = document.getElementById('booking_date_display');
                     if (disp) disp.textContent = new Date(ymd).toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+                    
+                    // Show selected date summary
+                    const selectedDateSummary = document.getElementById('selected_date_summary');
+                    const selectedDateDisplay = document.getElementById('selected_date_display');
+                    if (selectedDateSummary && selectedDateDisplay) {
+                        selectedDateDisplay.textContent = new Date(ymd).toLocaleDateString('en-US', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+                        selectedDateSummary.classList.remove('hidden');
+                    }
                     updateCalendarHighlighting();
                     generateTimeSlots();
                     showExistingBookings();
@@ -3956,7 +4249,13 @@ $existing_reservations = $stmt->fetchAll();
             
             const year = date.getFullYear();
             const month = date.getMonth();
-            calMonthLabelEl.textContent = date.toLocaleString('en-US', { month:'long', year:'numeric' });
+            calMonthLabelEl.textContent = date.toLocaleString('en-US', { month:'long' });
+            
+            // Update year label
+            const calYearLabelEl = document.getElementById('calYearLabel');
+            if (calYearLabelEl) {
+                calYearLabelEl.textContent = year;
+            }
             
             const first = new Date(year, month, 1);
             const startWeekday = first.getDay();
@@ -4003,7 +4302,7 @@ $existing_reservations = $stmt->fetchAll();
                         });
                         
                         // Add selection styling
-                        cell.classList.add('ring-2', 'ring-purple-400', 'bg-purple-100');
+                        cell.classList.add('ring-2', 'ring-purple-400', 'bg-purple-100', 'text-purple-900', 'font-bold');
                         
                         // Create date display
                         const dateDisplay = cellDate.toLocaleDateString('en-US', { 
@@ -4718,6 +5017,14 @@ $existing_reservations = $stmt->fetchAll();
                     const disp = document.getElementById('booking_date_display');
                     if (disp) disp.textContent = dateDisplay;
                     
+                    // Show selected date summary
+                    const selectedDateSummary = document.getElementById('selected_date_summary');
+                    const selectedDateDisplay = document.getElementById('selected_date_display');
+                    if (selectedDateSummary && selectedDateDisplay) {
+                        selectedDateDisplay.textContent = dateDisplay;
+                        selectedDateSummary.classList.remove('hidden');
+                    }
+                    
                     // Regenerate calendar and time slots
                     if (typeof generateAvailabilityCalendar === 'function') {
                         generateAvailabilityCalendar();
@@ -4795,6 +5102,7 @@ $existing_reservations = $stmt->fetchAll();
                 });
                 if (calPrev) calPrev.addEventListener('click', function(){ if (typeof calCurrent !== 'undefined' && typeof renderMonth==='function'){ calCurrent.setMonth(calCurrent.getMonth()-1); renderMonth(calCurrent); }});
                 if (calNext) calNext.addEventListener('click', function(){ if (typeof calCurrent !== 'undefined' && typeof renderMonth==='function'){ calCurrent.setMonth(calCurrent.getMonth()+1); renderMonth(calCurrent); }});
+                
             })();
             // Quick time chip handlers
             document.querySelectorAll('.quick-time').forEach(btn => {
@@ -5081,7 +5389,11 @@ $existing_reservations = $stmt->fetchAll();
             
             // Reset display elements
             const bookingDateDisplay = document.getElementById('booking_date_display');
-            if (bookingDateDisplay) bookingDateDisplay.textContent = 'Select a date';
+            if (bookingDateDisplay) bookingDateDisplay.textContent = 'Choose a date';
+            
+            // Hide selected date summary
+            const selectedDateSummary = document.getElementById('selected_date_summary');
+            if (selectedDateSummary) selectedDateSummary.classList.add('hidden');
             
             // Clear time slots
             const timeSlotsContainer = document.getElementById('time-slots');

@@ -250,9 +250,9 @@ $upcoming_reservations = $stmt->fetchAll();
         
         /* Unified Navigation Buttons */
         .nav-btn {
-            background: rgba(255, 255, 255, 0.15) !important;
+            background: rgba(253, 253, 253, 0.37) !important;
             color: white !important;
-            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            border: 1px solid rgb(2, 2, 2) !important;
             padding: 0.75rem 1.5rem !important;
             border-radius: 0.5rem !important;
             font-family: 'Poppins', sans-serif !important;
@@ -283,6 +283,44 @@ $upcoming_reservations = $stmt->fetchAll();
             background: rgba(220, 38, 38, 1) !important;
             transform: translateY(-2px) !important;
             box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3) !important;
+        }
+        
+        /* Mobile menu specific button styling */
+        .mobile-menu .nav-btn {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
+            color: white !important;
+            border: 2px solid rgba(255, 255, 255, 0.3) !important;
+            padding: 1rem 1.5rem !important;
+            border-radius: 1rem !important;
+            font-family: 'Poppins', sans-serif !important;
+            font-weight: 700 !important;
+            font-size: 1rem !important;
+            text-decoration: none !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 0.75rem !important;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            margin-bottom: 0.75rem !important;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3) !important;
+        }
+        
+        .mobile-menu .nav-btn:hover {
+            background: linear-gradient(135deg, #1d4ed8, #1e40af) !important;
+            transform: translateY(-2px) scale(1.02) !important;
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4) !important;
+            color: white !important;
+        }
+        
+        .mobile-menu .nav-btn.logout-btn {
+            background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+            border: 2px solid rgba(255, 255, 255, 0.3) !important;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3) !important;
+        }
+        
+        .mobile-menu .nav-btn.logout-btn:hover {
+            background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+            box-shadow: 0 8px 25px rgba(239, 68, 68, 0.4) !important;
         }
         
         .nav-user-info {
@@ -502,27 +540,101 @@ $upcoming_reservations = $stmt->fetchAll();
         /* Enhanced responsive design */
         @media (max-width: 768px) {
             .hero-section {
-                padding: 4rem 0 !important;
-                min-height: 70vh !important;
+                padding: 3rem 0 !important;
+                min-height: 60vh !important;
             }
             
             .hero-title {
-                font-size: 2.5rem !important;
+                font-size: 2.25rem !important;
+                line-height: 1.2 !important;
+                margin-bottom: 1rem !important;
             }
             
             .hero-subtitle {
-                font-size: 1.125rem !important;
+                font-size: 1rem !important;
+                line-height: 1.5 !important;
+                margin-bottom: 1.5rem !important;
             }
             
             .btn-hero {
-                padding: 1rem 1.5rem !important;
-                font-size: 1rem !important;
-                min-width: 180px !important;
+                padding: 0.875rem 1.25rem !important;
+                font-size: 0.95rem !important;
+                min-width: 160px !important;
+                margin: 0.5rem !important;
             }
             
             .nav-container {
                 padding: 0 1rem !important;
-                height: 70px !important;
+                height: 65px !important;
+            }
+            
+            .hero-cta-container {
+                flex-direction: column !important;
+                gap: 1rem !important;
+                align-items: center !important;
+            }
+            
+            .hero-stats {
+                flex-direction: column !important;
+                gap: 1rem !important;
+                margin-top: 2rem !important;
+            }
+            
+            .stat-item {
+                padding: 1rem 1.5rem !important;
+                width: 100% !important;
+                max-width: 280px !important;
+            }
+            
+            .stat-number {
+                font-size: 2rem !important;
+            }
+            
+            .stat-label {
+                font-size: 0.875rem !important;
+            }
+        }
+        
+        /* Extra small mobile devices */
+        @media (max-width: 480px) {
+            .hero-section {
+                padding: 2rem 0 !important;
+                min-height: 50vh !important;
+            }
+            
+            .hero-title {
+                font-size: 1.75rem !important;
+            }
+            
+            .hero-subtitle {
+                font-size: 0.9rem !important;
+            }
+            
+            .btn-hero {
+                padding: 0.75rem 1rem !important;
+                font-size: 0.875rem !important;
+                min-width: 140px !important;
+            }
+            
+            .nav-container {
+                padding: 0 0.75rem !important;
+                height: 60px !important;
+            }
+            
+            .nav-title {
+                font-size: 1.125rem !important;
+            }
+            
+            .stat-item {
+                padding: 0.875rem 1.25rem !important;
+            }
+            
+            .stat-number {
+                font-size: 1.75rem !important;
+            }
+            
+            .stat-label {
+                font-size: 0.8rem !important;
             }
         }
         
@@ -544,6 +656,311 @@ $upcoming_reservations = $stmt->fetchAll();
         
         .shadow-enhanced:hover {
             box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25) !important;
+        }
+        
+        /* Mobile User Profile Enhancements */
+        .mobile-user-profile {
+            animation: slideInDown 0.6s ease-out !important;
+        }
+        
+        .mobile-nav-links .nav-btn {
+            animation: slideInUp 0.6s ease-out !important;
+        }
+        
+        .mobile-nav-links .nav-btn:nth-child(1) { animation-delay: 0.1s; }
+        .mobile-nav-links .nav-btn:nth-child(2) { animation-delay: 0.2s; }
+        .mobile-nav-links .nav-btn:nth-child(3) { animation-delay: 0.3s; }
+        .mobile-nav-links .nav-btn:nth-child(4) { animation-delay: 0.4s; }
+        .mobile-nav-links .nav-btn:nth-child(5) { animation-delay: 0.5s; }
+        
+        @keyframes slideInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        @keyframes slideInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Mobile Menu Touch Enhancements */
+        .mobile-menu .nav-btn:active {
+            transform: scale(0.98) !important;
+            transition: transform 0.1s ease !important;
+        }
+        
+        /* Mobile Menu Icons */
+        .mobile-menu .nav-btn i {
+            font-size: 1.125rem !important;
+            width: 20px !important;
+            text-align: center !important;
+        }
+        
+        /* Mobile Menu Responsive Adjustments */
+        @media (max-width: 480px) {
+            .mobile-menu .nav-btn {
+                padding: 0.875rem 1.25rem !important;
+                font-size: 0.95rem !important;
+            }
+            
+            .mobile-user-profile {
+                padding: 1.25rem !important;
+            }
+            
+            .mobile-user-profile div {
+                width: 70px !important;
+                height: 70px !important;
+            }
+            
+            .mobile-user-profile i {
+                font-size: 1.75rem !important;
+            }
+        }
+        
+        /* Mobile-specific enhancements */
+        @media (max-width: 768px) {
+            .mobile-facility-grid {
+                grid-template-columns: 1fr !important;
+                gap: 1rem !important;
+                padding: 0 0.5rem !important;
+            }
+            
+            .mobile-facility-card {
+                padding: 1.25rem !important;
+                margin-bottom: 1rem !important;
+                border-radius: 1.25rem !important;
+            }
+            
+            .mobile-facility-card h3 {
+                font-size: 1.125rem !important;
+                line-height: 1.3 !important;
+            }
+            
+            .mobile-facility-card .countdown-timer {
+                font-size: 1.25rem !important;
+                padding: 0.75rem !important;
+            }
+            
+            .mobile-facility-card .usage-timer {
+                font-size: 1rem !important;
+            }
+            
+            /* Mobile navigation improvements */
+            .mobile-menu {
+                position: fixed !important;
+                top: 65px !important;
+                left: 0 !important;
+                right: 0 !important;
+                background: linear-gradient(135deg, #1e40af, #3b82f6) !important;
+                backdrop-filter: blur(20px) !important;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+                z-index: 999 !important;
+                transform: translateY(-100%) !important;
+                opacity: 0 !important;
+                visibility: hidden !important;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            }
+            
+            .mobile-menu.show {
+                transform: translateY(0) !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+            }
+            
+            .mobile-menu-btn {
+                display: flex !important;
+                background: none !important;
+                border: none !important;
+                padding: 0.5rem !important;
+                border-radius: 0.5rem !important;
+                cursor: pointer !important;
+                flex-direction: column !important;
+                gap: 4px !important;
+                transition: all 0.3s ease !important;
+                touch-action: manipulation !important;
+                -webkit-tap-highlight-color: transparent !important;
+            }
+            
+            .mobile-menu-btn:hover {
+                background: rgba(255, 255, 255, 0.1) !important;
+            }
+            
+            .mobile-menu-btn.active {
+                background: rgba(255, 255, 255, 0.2) !important;
+            }
+            
+            .hamburger-line {
+                width: 24px !important;
+                height: 3px !important;
+                background: white !important;
+                border-radius: 2px !important;
+                transition: all 0.3s ease !important;
+            }
+            
+            .mobile-menu-btn.active .hamburger-line:nth-child(1) {
+                transform: rotate(45deg) translate(6px, 6px) !important;
+            }
+            
+            .mobile-menu-btn.active .hamburger-line:nth-child(2) {
+                opacity: 0 !important;
+            }
+            
+            .mobile-menu-btn.active .hamburger-line:nth-child(3) {
+                transform: rotate(-45deg) translate(6px, -6px) !important;
+            }
+            
+            /* Mobile status indicators */
+            .mobile-status-indicators {
+                flex-direction: column !important;
+                gap: 0.75rem !important;
+            }
+            
+            /* Mobile hero stats for logged-in users */
+            .hero-stats {
+                flex-direction: column !important;
+                gap: 1rem !important;
+                margin-top: 2rem !important;
+                padding: 0 1rem !important;
+            }
+            
+            .hero-stats .stat-item {
+                padding: 1rem 1.5rem !important;
+                border-radius: 1.25rem !important;
+                margin-bottom: 0.75rem !important;
+            }
+            
+            .hero-stats .stat-number {
+                font-size: 2rem !important;
+                margin-bottom: 0.25rem !important;
+            }
+            
+            .hero-stats .stat-label {
+                font-size: 0.875rem !important;
+            }
+            
+            /* Mobile currently used facilities */
+            .mobile-currently-used {
+                padding: 1rem !important;
+                margin-bottom: 2rem !important;
+            }
+            
+            .mobile-currently-used h2 {
+                font-size: 1.5rem !important;
+                margin-bottom: 1rem !important;
+                text-align: center !important;
+            }
+            
+            .mobile-currently-used .facility-card {
+                margin-bottom: 1rem !important;
+                padding: 1.25rem !important;
+            }
+            
+            .mobile-status-indicators > div {
+                padding: 0.75rem 1rem !important;
+                font-size: 0.875rem !important;
+            }
+            
+            /* Mobile facility header */
+            .mobile-facility-header {
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 0.75rem !important;
+            }
+            
+            .mobile-facility-header > div:last-child {
+                align-self: flex-end !important;
+            }
+            
+            /* Mobile user info */
+            .mobile-user-info {
+                flex-direction: column !important;
+                gap: 0.75rem !important;
+            }
+            
+            .mobile-user-info > div {
+                flex-direction: row !important;
+                align-items: center !important;
+                gap: 0.75rem !important;
+            }
+            
+            /* Mobile countdown timer */
+            .mobile-countdown-container {
+                padding: 1rem !important;
+                margin-bottom: 1rem !important;
+            }
+            
+            .mobile-countdown-timer {
+                font-size: 1.25rem !important;
+                padding: 0.75rem !important;
+                text-align: center !important;
+            }
+            
+            /* Mobile upcoming reservations */
+            .mobile-upcoming-grid {
+                grid-template-columns: 1fr !important;
+                gap: 1rem !important;
+            }
+            
+            .mobile-upcoming-card {
+                padding: 1.25rem !important;
+                border-radius: 1rem !important;
+            }
+            
+            /* Mobile alert improvements */
+            .mobile-alert {
+                margin: 1rem 0.5rem !important;
+                padding: 1rem !important;
+                border-radius: 1rem !important;
+            }
+            
+            .mobile-alert h3 {
+                font-size: 1.125rem !important;
+                margin-bottom: 0.5rem !important;
+            }
+            
+            .mobile-alert p {
+                font-size: 0.875rem !important;
+                line-height: 1.5 !important;
+            }
+        }
+        
+        /* Extra small mobile devices */
+        @media (max-width: 480px) {
+            .mobile-facility-card {
+                padding: 1rem !important;
+                border-radius: 1rem !important;
+            }
+            
+            .mobile-facility-card h3 {
+                font-size: 1rem !important;
+            }
+            
+            .mobile-countdown-timer {
+                font-size: 1.125rem !important;
+                padding: 0.625rem !important;
+            }
+            
+            .mobile-menu {
+                top: 60px !important;
+            }
+            
+            .mobile-status-indicators > div {
+                padding: 0.625rem 0.875rem !important;
+                font-size: 0.8rem !important;
+            }
         }
     </style>
 </head>
@@ -593,7 +1010,7 @@ $upcoming_reservations = $stmt->fetchAll();
             
             <!-- Enhanced Mobile menu button -->
             <div class="nav-menu-mobile">
-                <button id="mobile-menu-button" class="mobile-menu-btn" aria-label="Toggle mobile menu">
+                <button id="mobile-menu-button" class="mobile-menu-btn" aria-label="Toggle mobile menu" aria-expanded="false">
                     <span class="hamburger-line"></span>
                     <span class="hamburger-line"></span>
                     <span class="hamburger-line"></span>
@@ -602,39 +1019,90 @@ $upcoming_reservations = $stmt->fetchAll();
         </div>
             <!-- Mobile Navigation -->
         <div id="mobile-menu" class="hidden mobile-menu">
-            <div class="container" style="padding: 1rem 0;">
+            <div class="container" style="padding: 1.5rem 1rem;">
                 <?php if ($auth->isLoggedIn()): ?>
-                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                    <!-- Mobile User Profile Section -->
+                    <div class="mobile-user-profile" style="text-align: center; margin-bottom: 2rem; padding: 1.5rem; background: rgba(255, 255, 255, 0.15); border-radius: 1.5rem; border: 2px solid rgba(255, 255, 255, 0.2); backdrop-filter: blur(10px);">
+                        <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);">
+                            <i class="fas fa-<?php echo $auth->isAdmin() ? 'user-shield' : 'user'; ?>" style="color: white; font-size: 2rem;"></i>
+                        </div>
+                        <h3 style="color: white; font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 1.25rem; margin-bottom: 0.5rem;">
+                            <?php echo htmlspecialchars($_SESSION['full_name']); ?>
+                        </h3>
+                        <p style="color: rgba(255, 255, 255, 0.8); font-family: 'Poppins', sans-serif; font-weight: 500; font-size: 0.9rem;">
+                            <?php echo $auth->isAdmin() ? 'Administrator' : 'Member'; ?>
+                        </p>
+                    </div>
+                    
+                    <!-- Mobile Navigation Links -->
+                    <div class="mobile-nav-links" style="display: flex; flex-direction: column; gap: 0.75rem;">
                         <?php if ($auth->isAdmin()): ?>
-                            <div style="color: white; padding: 0.75rem; background: rgba(255, 255, 255, 0.1); border-radius: 8px; font-weight: 500; border: 1px solid rgba(255, 255, 255, 0.2);">
-                                <i class="fas fa-user-shield" style="margin-right: 0.5rem;"></i>Admin: <?php echo htmlspecialchars($_SESSION['full_name']); ?>
-                            </div>
-                            <a href="admin/dashboard.php" class="nav-btn" style="display: block; text-align: center;">
-                                Admin Panel
+                            <a href="admin/dashboard.php" class="nav-btn">
+                                <i class="fas fa-tachometer-alt"></i>
+                                <span>Admin Dashboard</span>
+                            </a>
+                            <a href="admin/facilities.php" class="nav-btn">
+                                <i class="fas fa-building"></i>
+                                <span>Manage Facilities</span>
+                            </a>
+                            <a href="admin/reservations.php" class="nav-btn">
+                                <i class="fas fa-calendar-check"></i>
+                                <span>All Reservations</span>
+                            </a>
+                            <a href="admin/users.php" class="nav-btn">
+                                <i class="fas fa-users"></i>
+                                <span>User Management</span>
                             </a>
                         <?php else: ?>
-                            <div style="color: white; padding: 0.75rem; background: rgba(255, 255, 255, 0.1); border-radius: 8px; font-weight: 500; border: 1px solid rgba(255, 255, 255, 0.2);">
-                                <i class="fas fa-user" style="margin-right: 0.5rem;"></i>Welcome, <?php echo htmlspecialchars($_SESSION['full_name']); ?>
-                            </div>
-                            <a href="facilities.php" class="nav-btn" style="display: block; text-align: center;">
-                                Facilities
+                            <a href="facilities.php" class="nav-btn">
+                                <i class="fas fa-building"></i>
+                                <span>Browse Facilities</span>
                             </a>
-                            <a href="my_reservations.php" class="nav-btn" style="display: block; text-align: center;">
-                                My Reservations
+                            <a href="my_reservations.php" class="nav-btn">
+                                <i class="fas fa-calendar-alt"></i>
+                                <span>My Reservations</span>
+                            </a>
+                            <a href="usage_history.php" class="nav-btn">
+                                <i class="fas fa-history"></i>
+                                <span>Usage History</span>
+                            </a>
+                            <a href="manage_reservation.php" class="nav-btn">
+                                <i class="fas fa-cog"></i>
+                                <span>Manage Bookings</span>
                             </a>
                         <?php endif; ?>
-                        <a href="auth/logout.php" class="nav-btn logout-btn" style="display: block; text-align: center;" onclick="return confirmLogout()">
-                            Logout
+                        
+                        <!-- Logout Button -->
+                        <a href="auth/logout.php" class="nav-btn logout-btn" onclick="return confirmLogout()">
+                            <i class="fas fa-sign-out-alt"></i>
+                            <span>Logout</span>
                         </a>
                     </div>
                 <?php else: ?>
-                    <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                        <a href="auth/login.php" class="btn-primary" style="display: block; text-align: center;">
-                            <i class="fas fa-sign-in-alt"></i>Login
-                        </a>
-                        <a href="auth/register.php" class="btn-success" style="display: block; text-align: center;">
-                            <i class="fas fa-user-plus"></i>Register
-                        </a>
+                    <!-- Guest User Menu -->
+                    <div class="mobile-guest-menu" style="text-align: center;">
+                        <div style="margin-bottom: 2rem;">
+                            <div style="width: 80px; height: 80px; background: linear-gradient(135deg, #6b7280, #4b5563); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; box-shadow: 0 8px 25px rgba(107, 114, 128, 0.3);">
+                                <i class="fas fa-user" style="color: white; font-size: 2rem;"></i>
+                            </div>
+                            <h3 style="color: white; font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 1.25rem; margin-bottom: 0.5rem;">
+                                Welcome Guest
+                            </h3>
+                            <p style="color: rgba(255, 255, 255, 0.8); font-family: 'Poppins', sans-serif; font-weight: 500; font-size: 0.9rem;">
+                                Please login to access all features
+                            </p>
+                        </div>
+                        
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                            <a href="auth/login.php" class="nav-btn">
+                                <i class="fas fa-sign-in-alt"></i>
+                                <span>Login</span>
+                            </a>
+                            <a href="auth/register.php" class="nav-btn">
+                                <i class="fas fa-user-plus"></i>
+                                <span>Create Account</span>
+                            </a>
+                        </div>
                     </div>
                 <?php endif; ?>
             </div>
@@ -677,6 +1145,10 @@ $upcoming_reservations = $stmt->fetchAll();
                         <i class="fas fa-calendar"></i>
                         <span>My Reservations</span>
                     </a>
+                    <a href="usage_history.php" class="btn-primary btn-hero">
+                        <i class="fas fa-history"></i>
+                        <span>Usage History</span>
+                    </a>
                     <a href="facilities.php" class="btn-secondary btn-hero">
                         <i class="fas fa-building"></i>
                         <span>Browse Facilities</span>
@@ -686,7 +1158,7 @@ $upcoming_reservations = $stmt->fetchAll();
             
             <!-- Quick stats for logged-in users -->
             <?php if ($auth->isLoggedIn()): ?>
-                <div class="hero-stats" style="display: flex; justify-content: center; gap: 3rem; margin-top: 4rem; flex-wrap: wrap;">
+                <div class="hero-stats mobile-hero-stats" style="display: flex; justify-content: center; gap: 3rem; margin-top: 4rem; flex-wrap: wrap;">
                     <div class="stat-item" style="text-align: center; background: rgba(255, 255, 255, 0.15); padding: 1.5rem 2rem; border-radius: 1rem; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2);">
                         <div class="stat-number" style="font-family: 'Poppins', sans-serif; font-size: 2.5rem; font-weight: 900; color: white; margin-bottom: 0.5rem;"><?php echo count($facilities); ?></div>
                         <div class="stat-label" style="font-family: 'Poppins', sans-serif; font-size: 1rem; font-weight: 500; color: rgba(255, 255, 255, 0.9);">Available Facilities</div>
@@ -705,7 +1177,7 @@ $upcoming_reservations = $stmt->fetchAll();
     </div>
     <!-- No-Show Policy Alert -->
     <div class="container" style="padding: 2rem 0; max-width: 1200px; margin: 0 auto;">
-        <div class="alert alert-warning" style="background: linear-gradient(135deg, #fef3c7, #fde68a); border: 2px solid #f59e0b; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.2);">
+        <div class="alert alert-warning mobile-alert" style="background: linear-gradient(135deg, #fef3c7, #fde68a); border: 2px solid #f59e0b; border-radius: 1rem; padding: 1.5rem; box-shadow: 0 10px 25px -5px rgba(245, 158, 11, 0.2);">
             <div style="display: flex; align-items: flex-start;">
                 <div style="flex-shrink: 0; margin-right: 1rem;">
                     <i class="fas fa-exclamation-triangle" style="color: #d97706; font-size: 1.5rem;"></i>
@@ -725,7 +1197,7 @@ $upcoming_reservations = $stmt->fetchAll();
         <?php if ($auth->isLoggedIn()): ?>
 
             <!-- Enhanced Currently Used Facilities Section -->
-            <div style="margin-bottom: 4rem;">
+            <div class="mobile-currently-used" style="margin-bottom: 4rem;">
                 <div style="background: linear-gradient(135deg, #1e40af, #3b82f6, #60a5fa); padding: 3rem; border-radius: 2rem; margin-bottom: 2rem; position: relative; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(59, 130, 246, 0.3);">
                     <!-- Animated background elements -->
                     <div style="position: absolute; top: -50%; right: -20%; width: 200px; height: 200px; background: rgba(255, 255, 255, 0.1); border-radius: 50%; animation: float 6s ease-in-out infinite;"></div>
@@ -741,7 +1213,7 @@ $upcoming_reservations = $stmt->fetchAll();
                         </p>
                         
                         <!-- Live Status Indicators -->
-                        <div style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
+                        <div class="mobile-status-indicators" style="display: flex; gap: 1.5rem; flex-wrap: wrap;">
                             <div style="background: rgba(255, 255, 255, 0.2); padding: 1rem 1.5rem; border-radius: 25px; backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3);">
                                 <div style="display: flex; align-items: center; gap: 0.75rem;">
                                     <div style="width: 12px; height: 12px; background: #10b981; border-radius: 50%; animation: pulse 2s infinite;"></div>
@@ -771,14 +1243,14 @@ $upcoming_reservations = $stmt->fetchAll();
                 </div>
                 
                 <?php if (!empty($active_reservations)): ?>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3" style="gap: 1.5rem;">
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 mobile-facility-grid" style="gap: 1.5rem;">
                         <?php foreach ($active_reservations as $reservation): ?>
-                            <div class="facility-status-card" style="background: white; border-radius: 1.5rem; padding: 2rem; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); border: 2px solid #e5e7eb; position: relative; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); transform: translateY(0);" onmouseover="this.style.transform='translateY(-8px) scale(1.02)'; this.style.boxShadow='0 25px 50px rgba(0, 0, 0, 0.25)'" onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.boxShadow='0 10px 25px rgba(0, 0, 0, 0.1)'">
+                            <div class="facility-status-card mobile-facility-card" style="background: white; border-radius: 1.5rem; padding: 2rem; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); border: 2px solid #e5e7eb; position: relative; overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); transform: translateY(0);" onmouseover="this.style.transform='translateY(-8px) scale(1.02)'; this.style.boxShadow='0 25px 50px rgba(0, 0, 0, 0.25)'" onmouseout="this.style.transform='translateY(0) scale(1)'; this.style.boxShadow='0 10px 25px rgba(0, 0, 0, 0.1)'">
                                 <!-- Status indicator bar -->
                                 <div style="position: absolute; top: 0; left: 0; right: 0; height: 6px; background: linear-gradient(90deg, #10b981, #3b82f6, #f59e0b); animation: gradientShift 3s ease-in-out infinite;"></div>
                                 
                                 <!-- Facility header -->
-                                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; margin-top: 0.5rem;">
+                                <div class="mobile-facility-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; margin-top: 0.5rem;">
                                     <div>
                                         <h3 style="font-family: 'Poppins', sans-serif; font-weight: 800; color: #111827; font-size: 1.375rem; margin-bottom: 0.5rem;"><?php echo htmlspecialchars($reservation['facility_name']); ?></h3>
                                         <p style="font-family: 'Poppins', sans-serif; color: #6b7280; font-size: 0.95rem; font-weight: 500;">
@@ -793,7 +1265,7 @@ $upcoming_reservations = $stmt->fetchAll();
                                 </div>
                                 
                                 <!-- User and time info -->
-                                <div style="background: #f8fafc; padding: 1.5rem; border-radius: 1rem; margin-bottom: 1.5rem; border: 1px solid #e2e8f0;">
+                                <div class="mobile-user-info" style="background: #f8fafc; padding: 1.5rem; border-radius: 1rem; margin-bottom: 1.5rem; border: 1px solid #e2e8f0;">
                                     <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
                                         <div style="width: 45px; height: 45px; background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3);">
                                             <i class="fas fa-user"></i>
@@ -819,22 +1291,46 @@ $upcoming_reservations = $stmt->fetchAll();
                                 </div>
                                 
                                 <!-- Enhanced countdown timer -->
-                                <div style="background: linear-gradient(135deg, #fef3c7, #fde68a); padding: 1.5rem; border-radius: 1rem; border: 2px solid #f59e0b; margin-bottom: 1rem; box-shadow: 0 4px 15px rgba(245, 158, 11, 0.2);">
+                                <?php 
+                                    $start_time = strtotime($reservation['start_time']);
+                                    $end_time = strtotime($reservation['end_time']);
+                                    $now = time();
+                                    $has_started = $now >= $start_time;
+                                    
+                                    if ($has_started) {
+                                        // Reservation has started - show time remaining
+                                        $time_left = $end_time - $now;
+                                        $hours = floor($time_left / 3600);
+                                        $minutes = floor(($time_left % 3600) / 60);
+                                        $countdown_text = "Ends in:";
+                                        $countdown_icon = "fas fa-hourglass-end";
+                                        $timer_bg = "linear-gradient(135deg, #fef3c7, #fde68a)";
+                                        $timer_border = "#f59e0b";
+                                        $timer_color = "#92400e";
+                                    } else {
+                                        // Reservation hasn't started - show time until start
+                                        $time_left = $start_time - $now;
+                                        $hours = floor($time_left / 3600);
+                                        $minutes = floor(($time_left % 3600) / 60);
+                                        $countdown_text = "Starts in:";
+                                        $countdown_icon = "fas fa-clock";
+                                        $timer_bg = "linear-gradient(135deg, #dbeafe, #bfdbfe)";
+                                        $timer_border = "#3b82f6";
+                                        $timer_color = "#1e40af";
+                                    }
+                                ?>
+                                <div class="mobile-countdown-container" style="background: <?php echo $timer_bg; ?>; padding: 1.5rem; border-radius: 1rem; border: 2px solid <?php echo $timer_border; ?>; margin-bottom: 1rem; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);">
                                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem;">
-                                        <span style="font-family: 'Poppins', sans-serif; font-size: 1rem; color: #92400e; font-weight: 700;">
-                                            <i class="fas fa-hourglass-end" style="margin-right: 0.5rem;"></i>Ends in:
+                                        <span style="font-family: 'Poppins', sans-serif; font-size: 1rem; color: <?php echo $timer_color; ?>; font-weight: 700;">
+                                            <i class="<?php echo $countdown_icon; ?>" style="margin-right: 0.5rem;"></i><?php echo $countdown_text; ?>
                                         </span>
-                                        <i class="fas fa-exclamation-triangle" style="color: #f59e0b; font-size: 1.25rem;"></i>
+                                        <i class="fas fa-<?php echo $has_started ? 'exclamation-triangle' : 'play-circle'; ?>" style="color: <?php echo $timer_border; ?>; font-size: 1.25rem;"></i>
                                     </div>
-                                    <div class="countdown-timer" 
+                                    <div class="countdown-timer mobile-countdown-timer" 
                                          data-end-time="<?php echo $reservation['end_time']; ?>" 
-                                         style="font-family: 'Poppins', monospace; font-weight: 800; color: #92400e; font-size: 1.75rem; text-align: center; padding: 1rem; background: rgba(255, 255, 255, 0.6); border-radius: 0.75rem; border: 1px solid rgba(245, 158, 11, 0.3); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);">
+                                         data-start-time="<?php echo $reservation['start_time']; ?>"
+                                         style="font-family: 'Poppins', monospace; font-weight: 800; color: <?php echo $timer_color; ?>; font-size: 1.75rem; text-align: center; padding: 1rem; background: rgba(255, 255, 255, 0.6); border-radius: 0.75rem; border: 1px solid <?php echo $timer_border; ?>; box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);">
                                         <?php 
-                                            $end_time = strtotime($reservation['end_time']);
-                                            $now = time();
-                                            $time_left = $end_time - $now;
-                                            $hours = floor($time_left / 3600);
-                                            $minutes = floor(($time_left % 3600) / 60);
                                             if ($hours > 0) {
                                                 echo "{$hours}h {$minutes}m";
                                             } else {
@@ -875,9 +1371,9 @@ $upcoming_reservations = $stmt->fetchAll();
                         <i class="fas fa-calendar-alt" style="color: #3b82f6; margin-right: 1rem; font-size: 2rem;"></i>Upcoming Today
                     </h2>
                     <div class="card" style="padding: 2rem; background: white; border-radius: 1.5rem; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1); border: 1px solid #e5e7eb;">
-                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3" style="gap: 1.5rem;">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 mobile-upcoming-grid" style="gap: 1.5rem;">
                             <?php foreach ($upcoming_reservations as $reservation): ?>
-                                <div style="background: #f8fafc; border-radius: 1rem; padding: 1.5rem; border: 1px solid #e2e8f0; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 10px 25px rgba(0, 0, 0, 0.1)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                                <div class="mobile-upcoming-card" style="background: #f8fafc; border-radius: 1rem; padding: 1.5rem; border: 1px solid #e2e8f0; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 10px 25px rgba(0, 0, 0, 0.1)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
                                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem;">
                                         <h3 style="font-family: 'Poppins', sans-serif; font-weight: 700; color: #111827; font-size: 1.125rem;"><?php echo htmlspecialchars($reservation['facility_name']); ?></h3>
                                         <span class="status-badge status-upcoming" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); color: white; padding: 0.5rem 1rem; border-radius: 20px; font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 0.875rem;">Upcoming</span>
@@ -939,17 +1435,39 @@ $upcoming_reservations = $stmt->fetchAll();
                 // Toggle mobile menu
                 mobileMenuButton.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    mobileMenu.classList.toggle('hidden');
-                    mobileMenu.classList.toggle('show');
-                    mobileMenuButton.classList.toggle('active');
+                    e.preventDefault();
+                    
+                    const isHidden = mobileMenu.classList.contains('hidden');
+                    
+                    if (isHidden) {
+                        mobileMenu.classList.remove('hidden');
+                        mobileMenu.classList.add('show');
+                        mobileMenuButton.classList.add('active');
+                        mobileMenuButton.setAttribute('aria-expanded', 'true');
+                        
+                        // Prevent body scroll when menu is open
+                        document.body.style.overflow = 'hidden';
+                    } else {
+                        mobileMenu.classList.add('hidden');
+                        mobileMenu.classList.remove('show');
+                        mobileMenuButton.classList.remove('active');
+                        mobileMenuButton.setAttribute('aria-expanded', 'false');
+                        
+                        // Restore body scroll
+                        document.body.style.overflow = '';
+                    }
                 });
                 
                 // Close mobile menu when clicking outside
                 document.addEventListener('click', function(event) {
                     if (!mobileMenuButton.contains(event.target) && !mobileMenu.contains(event.target)) {
-                        mobileMenu.classList.add('hidden');
-                        mobileMenu.classList.remove('show');
-                        mobileMenuButton.classList.remove('active');
+                        if (!mobileMenu.classList.contains('hidden')) {
+                            mobileMenu.classList.add('hidden');
+                            mobileMenu.classList.remove('show');
+                            mobileMenuButton.classList.remove('active');
+                            mobileMenuButton.setAttribute('aria-expanded', 'false');
+                            document.body.style.overflow = '';
+                        }
                     }
                 });
                 
@@ -960,6 +1478,8 @@ $upcoming_reservations = $stmt->fetchAll();
                         mobileMenu.classList.add('hidden');
                         mobileMenu.classList.remove('show');
                         mobileMenuButton.classList.remove('active');
+                        mobileMenuButton.setAttribute('aria-expanded', 'false');
+                        document.body.style.overflow = '';
                     });
                 });
                 
@@ -969,6 +1489,8 @@ $upcoming_reservations = $stmt->fetchAll();
                         mobileMenu.classList.add('hidden');
                         mobileMenu.classList.remove('show');
                         mobileMenuButton.classList.remove('active');
+                        mobileMenuButton.setAttribute('aria-expanded', 'false');
+                        document.body.style.overflow = '';
                     }
                 });
                 
@@ -978,8 +1500,37 @@ $upcoming_reservations = $stmt->fetchAll();
                         mobileMenu.classList.add('hidden');
                         mobileMenu.classList.remove('show');
                         mobileMenuButton.classList.remove('active');
+                        mobileMenuButton.setAttribute('aria-expanded', 'false');
+                        document.body.style.overflow = '';
                     }
                 });
+                
+                // Touch events for better mobile interaction
+                let touchStartY = 0;
+                let touchEndY = 0;
+                
+                mobileMenu.addEventListener('touchstart', function(e) {
+                    touchStartY = e.changedTouches[0].screenY;
+                }, { passive: true });
+                
+                mobileMenu.addEventListener('touchend', function(e) {
+                    touchEndY = e.changedTouches[0].screenY;
+                    handleSwipe();
+                }, { passive: true });
+                
+                function handleSwipe() {
+                    const swipeThreshold = 50;
+                    const diff = touchStartY - touchEndY;
+                    
+                    // Swipe up to close menu
+                    if (diff > swipeThreshold) {
+                        mobileMenu.classList.add('hidden');
+                        mobileMenu.classList.remove('show');
+                        mobileMenuButton.classList.remove('active');
+                        mobileMenuButton.setAttribute('aria-expanded', 'false');
+                        document.body.style.overflow = '';
+                    }
+                }
             }
             // Filter functionality
             const categoryFilter = document.getElementById('categoryFilter');
@@ -1067,77 +1618,155 @@ $upcoming_reservations = $stmt->fetchAll();
                 
                 countdownElements.forEach(element => {
                     const endTime = new Date(element.dataset.endTime);
+                    const startTime = new Date(element.dataset.startTime);
                     const now = new Date();
-                    const timeLeft = endTime - now;
                     
-                    if (timeLeft <= 0) {
-                        element.textContent = 'TIME EXPIRED!';
-                        element.style.color = '#dc2626';
-                        element.style.fontWeight = 'bold';
-                        element.style.background = 'rgba(220, 38, 38, 0.1)';
-                        element.style.border = '2px solid #dc2626';
-                        element.classList.add('urgent');
+                    // Determine if reservation has started
+                    const hasStarted = now >= startTime;
+                    let timeLeft, timeString;
+                    
+                    if (hasStarted) {
+                        // Reservation has started - countdown to end
+                        timeLeft = endTime - now;
                         
-                        // Add visual alert for expired timers
-                        const card = element.closest('.facility-status-card');
-                        if (card) {
-                            card.style.border = '3px solid #dc2626';
-                            card.style.animation = 'pulse 1s infinite';
+                        if (timeLeft <= 0) {
+                            element.textContent = 'TIME EXPIRED!';
+                            element.style.color = '#dc2626';
+                            element.style.fontWeight = 'bold';
+                            element.style.background = 'rgba(220, 38, 38, 0.1)';
+                            element.style.border = '2px solid #dc2626';
+                            element.classList.add('urgent');
+                            
+                            // Add visual alert for expired timers
+                            const card = element.closest('.facility-status-card');
+                            if (card) {
+                                card.style.border = '3px solid #dc2626';
+                                card.style.animation = 'pulse 1s infinite';
+                            }
+                            return;
                         }
-                        return;
-                    }
-                    
-                    const hours = Math.floor(timeLeft / (1000 * 60 * 60));
-                    const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-                    const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-                    
-                    let timeString;
-                    if (hours > 0) {
-                        timeString = `${hours}h ${minutes}m ${seconds}s`;
-                    } else if (minutes > 0) {
-                        timeString = `${minutes}m ${seconds}s`;
+                        
+                        const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+                        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                        const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+                        
+                        if (hours > 0) {
+                            timeString = `${hours}h ${minutes}m ${seconds}s`;
+                        } else if (minutes > 0) {
+                            timeString = `${minutes}m ${seconds}s`;
+                        } else {
+                            timeString = `${seconds}s`;
+                        }
                     } else {
-                        timeString = `${seconds}s`;
+                        // Reservation hasn't started - countdown to start
+                        timeLeft = startTime - now;
+                        
+                        if (timeLeft <= 0) {
+                            element.textContent = 'STARTING NOW!';
+                            element.style.color = '#059669';
+                            element.style.fontWeight = 'bold';
+                            element.style.background = 'rgba(5, 150, 105, 0.1)';
+                            element.style.border = '2px solid #059669';
+                            element.classList.add('starting');
+                            
+                            // Add visual alert for starting timers
+                            const card = element.closest('.facility-status-card');
+                            if (card) {
+                                card.style.border = '3px solid #059669';
+                                card.style.animation = 'pulse 1s infinite';
+                            }
+                            return;
+                        }
+                        
+                        const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+                        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+                        const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+                        
+                        if (hours > 0) {
+                            timeString = `${hours}h ${minutes}m ${seconds}s`;
+                        } else if (minutes > 0) {
+                            timeString = `${minutes}m ${seconds}s`;
+                        } else {
+                            timeString = `${seconds}s`;
+                        }
                     }
                     
                     element.textContent = timeString;
                     
                     // Enhanced warning system with visual feedback
-                    element.classList.remove('warning', 'urgent');
+                    element.classList.remove('warning', 'urgent', 'starting');
                     element.style.background = '';
                     element.style.border = '';
                     
-                    if (timeLeft <= 5 * 60 * 1000) { // 5 minutes or less
-                        element.style.color = '#dc2626';
-                        element.style.background = 'rgba(220, 38, 38, 0.1)';
-                        element.style.border = '2px solid #dc2626';
-                        element.classList.add('urgent');
-                        
-                        // Flash the entire card for urgent warnings
-                        const card = element.closest('.facility-status-card');
-                        if (card) {
-                            card.style.border = '3px solid #dc2626';
-                        }
-                    } else if (timeLeft <= 15 * 60 * 1000) { // 15 minutes or less
-                        element.style.color = '#f59e0b';
-                        element.style.background = 'rgba(245, 158, 11, 0.1)';
-                        element.style.border = '2px solid #f59e0b';
-                        element.classList.add('warning');
-                        
-                        // Highlight the card for warnings
-                        const card = element.closest('.facility-status-card');
-                        if (card) {
-                            card.style.border = '2px solid #f59e0b';
+                    if (hasStarted) {
+                        // Reservation has started - show end time warnings
+                        if (timeLeft <= 5 * 60 * 1000) { // 5 minutes or less
+                            element.style.color = '#dc2626';
+                            element.style.background = 'rgba(220, 38, 38, 0.1)';
+                            element.style.border = '2px solid #dc2626';
+                            element.classList.add('urgent');
+                            
+                            // Flash the entire card for urgent warnings
+                            const card = element.closest('.facility-status-card');
+                            if (card) {
+                                card.style.border = '3px solid #dc2626';
+                            }
+                        } else if (timeLeft <= 15 * 60 * 1000) { // 15 minutes or less
+                            element.style.color = '#f59e0b';
+                            element.style.background = 'rgba(245, 158, 11, 0.1)';
+                            element.style.border = '2px solid #f59e0b';
+                            element.classList.add('warning');
+                            
+                            // Highlight the card for warnings
+                            const card = element.closest('.facility-status-card');
+                            if (card) {
+                                card.style.border = '2px solid #f59e0b';
+                            }
+                        } else {
+                            element.style.color = '#92400e';
+                            element.style.background = 'rgba(255, 255, 255, 0.5)';
+                            element.style.border = '1px solid rgba(245, 158, 11, 0.3)';
+                            
+                            // Reset card styling
+                            const card = element.closest('.facility-status-card');
+                            if (card) {
+                                card.style.border = '2px solid #e5e7eb';
+                            }
                         }
                     } else {
-                        element.style.color = '#92400e';
-                        element.style.background = 'rgba(255, 255, 255, 0.5)';
-                        element.style.border = '1px solid rgba(245, 158, 11, 0.3)';
-                        
-                        // Reset card styling
-                        const card = element.closest('.facility-status-card');
-                        if (card) {
-                            card.style.border = '2px solid #e5e7eb';
+                        // Reservation hasn't started - show start time warnings
+                        if (timeLeft <= 5 * 60 * 1000) { // 5 minutes or less until start
+                            element.style.color = '#059669';
+                            element.style.background = 'rgba(5, 150, 105, 0.1)';
+                            element.style.border = '2px solid #059669';
+                            element.classList.add('starting');
+                            
+                            // Highlight the card for starting soon
+                            const card = element.closest('.facility-status-card');
+                            if (card) {
+                                card.style.border = '3px solid #059669';
+                            }
+                        } else if (timeLeft <= 15 * 60 * 1000) { // 15 minutes or less until start
+                            element.style.color = '#3b82f6';
+                            element.style.background = 'rgba(59, 130, 246, 0.1)';
+                            element.style.border = '2px solid #3b82f6';
+                            element.classList.add('warning');
+                            
+                            // Highlight the card for starting soon
+                            const card = element.closest('.facility-status-card');
+                            if (card) {
+                                card.style.border = '2px solid #3b82f6';
+                            }
+                        } else {
+                            element.style.color = '#1e40af';
+                            element.style.background = 'rgba(255, 255, 255, 0.5)';
+                            element.style.border = '1px solid rgba(59, 130, 246, 0.3)';
+                            
+                            // Reset card styling
+                            const card = element.closest('.facility-status-card');
+                            if (card) {
+                                card.style.border = '2px solid #e5e7eb';
+                            }
                         }
                     }
                 });
@@ -1231,6 +1860,50 @@ $upcoming_reservations = $stmt->fetchAll();
             setTimeout(() => {
                 location.reload();
             }, 5 * 60 * 1000);
+            
+            // Mobile-specific optimizations
+            if (window.innerWidth <= 768) {
+                // Reduce animation frequency on mobile for better performance
+                const originalUpdateInterval = setInterval(updateCountdownTimers, 1000);
+                clearInterval(originalUpdateInterval);
+                setInterval(updateCountdownTimers, 2000); // Update every 2 seconds on mobile
+                
+                // Optimize scroll performance
+                let ticking = false;
+                function updateOnScroll() {
+                    if (!ticking) {
+                        requestAnimationFrame(() => {
+                            // Mobile scroll optimizations can be added here
+                            ticking = false;
+                        });
+                        ticking = true;
+                    }
+                }
+                
+                window.addEventListener('scroll', updateOnScroll, { passive: true });
+                
+                // Touch-friendly interactions
+                const touchElements = document.querySelectorAll('.facility-status-card, .mobile-facility-card');
+                touchElements.forEach(element => {
+                    element.addEventListener('touchstart', function() {
+                        this.style.transform = 'scale(0.98)';
+                    }, { passive: true });
+                    
+                    element.addEventListener('touchend', function() {
+                        this.style.transform = '';
+                    }, { passive: true });
+                });
+                
+                // Prevent zoom on double tap for better UX
+                let lastTouchEnd = 0;
+                document.addEventListener('touchend', function (event) {
+                    const now = (new Date()).getTime();
+                    if (now - lastTouchEnd <= 300) {
+                        event.preventDefault();
+                    }
+                    lastTouchEnd = now;
+                }, false);
+            }
         });
         
         // Logout confirmation function

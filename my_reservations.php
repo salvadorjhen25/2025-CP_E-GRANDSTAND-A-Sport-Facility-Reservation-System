@@ -1,8 +1,20 @@
 <?php
+// Suppress PHP errors to prevent them from appearing in JavaScript
+error_reporting(0);
+ini_set('display_errors', 0);
+
+// Start output buffering to prevent any PHP errors from appearing in JavaScript
+ob_start();
+
 require_once 'config/database.php';
 require_once 'auth/auth.php';
 require_once 'classes/PaymentManager.php';
 require_once 'classes/ReservationManager.php';
+
+// Define site constants if not already defined
+if (!defined('SITE_NAME')) {
+    define('SITE_NAME', 'Facility Reservation System');
+}
 // Helper function to format booking duration
 function formatBookingDuration($startTime, $endTime, $bookingType) {
     $start = new DateTime($startTime);
@@ -29,6 +41,11 @@ function formatBookingDuration($startTime, $endTime, $bookingType) {
         return $hours . ' hour' . ($hours > 1 ? 's' : '');
     }
 }
+// Initialize session if not already started
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 $auth = new Auth();
 $auth->requireRegularUser();
 $pdo = getDBConnection();
@@ -76,11 +93,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 $stmt = $pdo->prepare("
     SELECT r.*, f.name as facility_name, f.hourly_rate, c.name as category_name,
            r.or_number, r.verified_by_staff_name, r.payment_verified_at,
-           admin.full_name as verified_by_admin
+           admin.full_name as verified_by_admin, admin.role as verifier_role,
+           u.email as user_email, u.full_name as user_full_name, u.organization as user_organization
     FROM reservations r
     JOIN facilities f ON r.facility_id = f.id
     LEFT JOIN categories c ON f.category_id = c.id
     LEFT JOIN users admin ON r.payment_verified_by = admin.id
+    LEFT JOIN users u ON r.user_id = u.id
     WHERE r.user_id = ? AND r.status NOT IN ('expired', 'cancelled')
     ORDER BY r.created_at DESC
 ");
@@ -411,6 +430,18 @@ $paymentManager->checkExpiredPayments();
         #loading-overlay {
             z-index: 9999 !important;
         }
+
+        /* Fallback to hide loading overlay after 5 seconds */
+        #loading-overlay {
+            animation: fadeOut 0.3s ease-out 5s forwards;
+        }
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                visibility: hidden;
+            }
+        }
         
         @keyframes fadeIn {
             from { opacity: 0; }
@@ -512,6 +543,78 @@ $paymentManager->checkExpiredPayments();
             animation: bounce-in 0.8s ease-out;
         }
 
+        /* Receipt Print Styles */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            .receipt-content, .receipt-content * {
+                visibility: visible;
+            }
+            .receipt-content {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                margin: 0;
+                padding: 0;
+                box-shadow: none;
+                border: none;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+
+        .receipt-content {
+            font-family: 'Courier New', monospace;
+            line-height: 1.4;
+        }
+
+        .receipt-header {
+            text-align: center;
+            border-bottom: 2px solid #000;
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .receipt-title {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .receipt-subtitle {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .receipt-section {
+            margin-bottom: 15px;
+        }
+
+        .receipt-label {
+            font-weight: bold;
+            display: inline-block;
+            width: 120px;
+        }
+
+        .receipt-value {
+            display: inline-block;
+        }
+
+        .receipt-divider {
+            border-top: 1px dashed #000;
+            margin: 15px 0;
+        }
+
+        .receipt-footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 12px;
+            color: #666;
+        }
+
     </style>
 </head>
 <body class="bg-gradient-to-br from-blue-50 via-white to-purple-50 min-h-screen">
@@ -575,6 +678,10 @@ $paymentManager->checkExpiredPayments();
             <a href="usage_history.php" class="sidebar-nav-item">
                 <i class="fas fa-history"></i>
                     <span>Usage History</span>
+                </a>
+            <a href="profile.php" class="sidebar-nav-item">
+                <i class="fas fa-user-circle"></i>
+                    <span>My Profile</span>
                 </a>
         </nav>
         
@@ -832,7 +939,7 @@ $paymentManager->checkExpiredPayments();
                                         <?php if ($reservation['verified_by_admin']): ?>
                                             <div class="flex items-center text-sm">
                                                 <i class="fas fa-user-shield text-green-600 mr-2"></i>
-                                                <span class="text-gray-700">Admin: <strong><?php echo htmlspecialchars($reservation['verified_by_admin']); ?></strong></span>
+                                                <span class="text-gray-700">Role: <strong><?php echo $reservation['verifier_role'] === 'admin' ? 'Admin' : 'Staff'; ?></strong></span>
                                             </div>
                                         <?php endif; ?>
                                         
@@ -858,6 +965,13 @@ $paymentManager->checkExpiredPayments();
                                     <span class="px-2 py-1 bg-green-100 text-green-700 rounded text-xs">Paid</span>
                         <?php elseif ($reservation['status'] === 'pending'): ?>
                                     <span class="px-2 py-1 bg-orange-100 text-orange-700 rounded text-xs">Payment Required</span>
+                        <?php endif; ?>
+                        
+                        <?php if (in_array($reservation['status'], ['confirmed', 'completed']) && $reservation['payment_status'] === 'paid'): ?>
+                            <button onclick="generateReceipt(<?php echo $reservation['id']; ?>)" 
+                                            class="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm font-medium transition-colors">
+                                        <i class="fas fa-receipt mr-1"></i>Receipt
+                            </button>
                         <?php endif; ?>
                         
                         <?php if (in_array($reservation['status'], ['pending', 'confirmed'])): ?>
@@ -947,36 +1061,66 @@ $paymentManager->checkExpiredPayments();
         </div>
     </div>
 
+    <!-- Receipt Modal -->
+    <div id="receiptModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto transform transition-all duration-300 scale-95 opacity-0" id="receiptModalContent">
+            <!-- Receipt content will be dynamically inserted here -->
+        </div>
+    </div>
+
     
     <script>
         // Hide loading overlay when page is ready
         window.addEventListener('load', function() {
-            const loadingOverlay = document.getElementById('loading-overlay');
-            if (loadingOverlay) {
-                loadingOverlay.style.opacity = '0';
-                setTimeout(() => {
+            try {
+                const loadingOverlay = document.getElementById('loading-overlay');
+                if (loadingOverlay) {
+                    loadingOverlay.style.opacity = '0';
+                    setTimeout(() => {
+                        loadingOverlay.style.display = 'none';
+                    }, 300);
+                }
+            } catch (error) {
+                console.error('Error hiding loading overlay:', error);
+                // Force hide the loading overlay if there's an error
+                const loadingOverlay = document.getElementById('loading-overlay');
+                if (loadingOverlay) {
                     loadingOverlay.style.display = 'none';
-                }, 300);
-            }
-        });
-        document.addEventListener('DOMContentLoaded', function() {
-            // Sidebar toggle functionality
-            const sidebar = document.getElementById('sidebar');
-            const sidebarToggle = document.getElementById('sidebarToggle');
-            const sidebarOverlay = document.getElementById('sidebarOverlay');
-            
-            function toggleSidebar() {
-                sidebar.classList.toggle('active');
-                sidebarOverlay.classList.toggle('active');
-                
-                // Change icon
-                const icon = sidebarToggle.querySelector('i');
-                if (sidebar.classList.contains('active')) {
-                    icon.className = 'fas fa-times';
-                    } else {
-                    icon.className = 'fas fa-bars';
                 }
             }
+        });
+
+        // Also hide loading overlay on DOMContentLoaded as a fallback
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                const loadingOverlay = document.getElementById('loading-overlay');
+                if (loadingOverlay && loadingOverlay.style.display !== 'none') {
+                    loadingOverlay.style.opacity = '0';
+                    setTimeout(() => {
+                        loadingOverlay.style.display = 'none';
+                    }, 300);
+                }
+            }, 1000); // Wait 1 second as fallback
+        });
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                // Sidebar toggle functionality
+                const sidebar = document.getElementById('sidebar');
+                const sidebarToggle = document.getElementById('sidebarToggle');
+                const sidebarOverlay = document.getElementById('sidebarOverlay');
+                
+                const toggleSidebar = function() {
+                    sidebar.classList.toggle('active');
+                    sidebarOverlay.classList.toggle('active');
+                    
+                    // Change icon
+                    const icon = sidebarToggle.querySelector('i');
+                    if (sidebar.classList.contains('active')) {
+                        icon.className = 'fas fa-times';
+                    } else {
+                        icon.className = 'fas fa-bars';
+                    }
+                };
             
             if (sidebarToggle) {
                 sidebarToggle.addEventListener('click', toggleSidebar);
@@ -1094,6 +1238,14 @@ $paymentManager->checkExpiredPayments();
                     }
                 });
             });
+            } catch (error) {
+                console.error('Error in DOMContentLoaded:', error);
+                // Ensure loading overlay is hidden even if there's an error
+                const loadingOverlay = document.getElementById('loading-overlay');
+                if (loadingOverlay) {
+                    loadingOverlay.style.display = 'none';
+                }
+            }
         });
         // Cancel reservation modal functions
         function showCancelConfirmation(reservationId, facilityName, dateTime) {
@@ -1133,38 +1285,6 @@ $paymentManager->checkExpiredPayments();
                 closeCancelModal();
             }
         });
-        // Close modal on escape key
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                const cancelModal = document.getElementById('cancelModal');
-                const facilityModal = document.getElementById('facilityModal');
-                if (!cancelModal.classList.contains('hidden')) {
-                    closeCancelModal();
-                }
-                if (!facilityModal.classList.contains('hidden')) {
-                    closeFacilityModal();
-                }
-            }
-        });
-        
-        // Close facility modal when clicking outside
-        document.getElementById('facilityModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeFacilityModal();
-            }
-        });
-        // Handle form submission with loading state
-        document.getElementById('cancelForm').addEventListener('submit', function(e) {
-            const submitBtn = this.querySelector('button[type="submit"]');
-            const originalText = submitBtn.innerHTML;
-            submitBtn.disabled = true;
-            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Cancelling...';
-            // The form will submit normally, but we show loading state
-            setTimeout(() => {
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalText;
-            }, 2000);
-        });
         
         // Logout confirmation function
         function confirmLogout() {
@@ -1175,7 +1295,7 @@ $paymentManager->checkExpiredPayments();
         // Facility details modal function
         function showFacilityDetails(facilityId) {
             // Filter reservations for this facility
-            const facilityReservations = <?php echo json_encode($reservations); ?>;
+            const facilityReservations = <?php echo json_encode($reservations, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
             const facilityData = facilityReservations.filter(r => r.facility_id == facilityId);
             
             if (facilityData.length === 0) {
@@ -1330,6 +1450,255 @@ $paymentManager->checkExpiredPayments();
                 document.body.style.overflow = '';
             }, 300);
         }
+
+        // Receipt generation functions
+        function generateReceipt(reservationId) {
+            // Get reservation data
+            const reservations = <?php echo json_encode($reservations, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;
+            const reservation = reservations.find(r => r.id == reservationId);
+            
+            if (!reservation) {
+                alert('Reservation not found.');
+                return;
+            }
+
+            // Format dates and times
+            const startDate = new Date(reservation.start_time);
+            const endDate = new Date(reservation.end_time);
+            const createdDate = new Date(reservation.created_at);
+            const verifiedDate = reservation.payment_verified_at ? new Date(reservation.payment_verified_at) : null;
+
+            // Get PHP variables
+            const siteName = <?php echo json_encode(SITE_NAME); ?>;
+            const customerName = reservation.user_full_name || 'User';
+            const customerEmail = reservation.user_email || 'user@example.com';
+            const customerOrganization = reservation.user_organization || '';
+
+            // Create receipt content
+            const receiptContent = `
+                <div class="receipt-content p-6">
+                    <!-- Receipt Header -->
+                    <div class="receipt-header">
+                        <div class="receipt-title">${siteName}</div>
+                        <div class="receipt-subtitle">Facility Reservation Receipt</div>
+                    </div>
+
+                    <!-- Reservation Details -->
+                    <div class="receipt-section">
+                        <div><span class="receipt-label">Receipt No:</span><span class="receipt-value">#${reservation.id}</span></div>
+                        <div><span class="receipt-label">Date:</span><span class="receipt-value">${createdDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span></div>
+                        <div><span class="receipt-label">Time:</span><span class="receipt-value">${createdDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span></div>
+                    </div>
+
+                    <div class="receipt-divider"></div>
+
+                    <!-- Customer Information -->
+                    <div class="receipt-section">
+                        <div><span class="receipt-label">Customer:</span><span class="receipt-value">${customerName}</span></div>
+                        <div><span class="receipt-label">Email:</span><span class="receipt-value">${customerEmail}</span></div>
+                        ${customerOrganization ? `<div><span class="receipt-label">Organization:</span><span class="receipt-value">${customerOrganization}</span></div>` : ''}
+                    </div>
+
+                    <div class="receipt-divider"></div>
+
+                    <!-- Facility Information -->
+                    <div class="receipt-section">
+                        <div><span class="receipt-label">Facility:</span><span class="receipt-value">${reservation.facility_name}</span></div>
+                        <div><span class="receipt-label">Category:</span><span class="receipt-value">${reservation.category_name}</span></div>
+                        <div><span class="receipt-label">Purpose:</span><span class="receipt-value">${reservation.purpose || 'General use'}</span></div>
+                    </div>
+
+                    <div class="receipt-divider"></div>
+
+                    <!-- Booking Details -->
+                    <div class="receipt-section">
+                        <div><span class="receipt-label">Booking Date:</span><span class="receipt-value">${startDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span></div>
+                        <div><span class="receipt-label">Start Time:</span><span class="receipt-value">${startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span></div>
+                        <div><span class="receipt-label">End Time:</span><span class="receipt-value">${endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span></div>
+                        <div><span class="receipt-label">Duration:</span><span class="receipt-value">${formatBookingDuration(reservation.start_time, reservation.end_time, reservation.booking_type || 'hourly')}</span></div>
+                        <div><span class="receipt-label">Booking Type:</span><span class="receipt-value">${(reservation.booking_type || 'hourly').charAt(0).toUpperCase() + (reservation.booking_type || 'hourly').slice(1)}</span></div>
+                    </div>
+
+                    <div class="receipt-divider"></div>
+
+                    <!-- Payment Information -->
+                    <div class="receipt-section">
+                        <div><span class="receipt-label">Amount:</span><span class="receipt-value">₱${parseFloat(reservation.total_amount).toLocaleString()}</span></div>
+                        <div><span class="receipt-label">Status:</span><span class="receipt-value">${reservation.status.charAt(0).toUpperCase() + reservation.status.slice(1)}</span></div>
+                        <div><span class="receipt-label">Payment:</span><span class="receipt-value">${reservation.payment_status.charAt(0).toUpperCase() + reservation.payment_status.slice(1)}</span></div>
+                        ${reservation.or_number ? `<div><span class="receipt-label">OR Number:</span><span class="receipt-value">${reservation.or_number}</span></div>` : ''}
+                        ${reservation.verified_by_staff_name ? `<div><span class="receipt-label">Verified by:</span><span class="receipt-value">${reservation.verified_by_staff_name}</span></div>` : ''}
+                        ${verifiedDate ? `<div><span class="receipt-label">Verified on:</span><span class="receipt-value">${verifiedDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} ${verifiedDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</span></div>` : ''}
+                    </div>
+
+                    <div class="receipt-divider"></div>
+
+                    <!-- Footer -->
+                    <div class="receipt-footer">
+                        <div>Thank you for using our facility reservation system!</div>
+                        <div>For inquiries, please contact our support team.</div>
+                        <div>Generated on: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}</div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex justify-center space-x-4 mt-6 no-print">
+                        <button onclick="printReceipt()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
+                            <i class="fas fa-print mr-2"></i>Print Receipt
+                        </button>
+                        <button onclick="downloadReceipt()" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
+                            <i class="fas fa-download mr-2"></i>Download PDF
+                        </button>
+                        <button onclick="closeReceiptModal()" class="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors">
+                            <i class="fas fa-times mr-2"></i>Close
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            // Show receipt modal
+            const modal = document.getElementById('receiptModal');
+            const modalContent = document.getElementById('receiptModalContent');
+            modalContent.innerHTML = receiptContent;
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            // Animate modal in
+            setTimeout(() => {
+                modalContent.classList.remove('scale-95', 'opacity-0');
+                modalContent.classList.add('scale-100', 'opacity-100');
+            }, 10);
+            
+            // Prevent body scroll
+            document.body.style.overflow = 'hidden';
+        }
+
+        function printReceipt() {
+            window.print();
+        }
+
+        function downloadReceipt() {
+            // Create a new window for printing/downloading
+            const printWindow = window.open('', '_blank');
+            const receiptContent = document.querySelector('.receipt-content').outerHTML;
+            
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Reservation Receipt</title>
+                    <style>
+                        body { font-family: 'Courier New', monospace; margin: 0; padding: 20px; }
+                        .receipt-content { max-width: 400px; margin: 0 auto; }
+                        .receipt-header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 15px; margin-bottom: 20px; }
+                        .receipt-title { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+                        .receipt-subtitle { font-size: 14px; color: #666; }
+                        .receipt-section { margin-bottom: 15px; }
+                        .receipt-label { font-weight: bold; display: inline-block; width: 120px; }
+                        .receipt-value { display: inline-block; }
+                        .receipt-divider { border-top: 1px dashed #000; margin: 15px 0; }
+                        .receipt-footer { text-align: center; margin-top: 30px; font-size: 12px; color: #666; }
+                        .no-print { display: none !important; }
+                    </style>
+                </head>
+                <body>
+                    ${receiptContent}
+                </body>
+                </html>
+            `);
+            
+            printWindow.document.close();
+            printWindow.focus();
+            
+            // Wait for content to load, then trigger print dialog
+            setTimeout(() => {
+                printWindow.print();
+                printWindow.close();
+            }, 250);
+        }
+
+        function closeReceiptModal() {
+            const modal = document.getElementById('receiptModal');
+            const modalContent = document.getElementById('receiptModalContent');
+            
+            // Animate modal out
+            modalContent.classList.add('scale-95', 'opacity-0');
+            modalContent.classList.remove('scale-100', 'opacity-100');
+            
+            setTimeout(() => {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+                // Restore body scroll
+                document.body.style.overflow = '';
+            }, 300);
+        }
+
+        // Helper function to format booking duration (same as PHP function)
+        function formatBookingDuration(startTime, endTime, bookingType) {
+            const start = new Date(startTime);
+            const end = new Date(endTime);
+            
+            if (bookingType === 'daily') {
+                const startDate = new Date(startTime);
+                const endDate = new Date(endTime);
+                
+                if (startDate.toDateString() === endDate.toDateString()) {
+                    return '1 day';
+                } else {
+                    const days = Math.ceil((endDate - startDate) / (1000 * 60 * 60 * 24)) + 1;
+                    return days + ' day' + (days > 1 ? 's' : '');
+                }
+            } else {
+                const hours = Math.ceil((end - start) / (1000 * 60 * 60));
+                return hours + ' hour' + (hours > 1 ? 's' : '');
+            }
+        }
+
+        // Event listeners (moved after function definitions)
+        // Close modal on escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const cancelModal = document.getElementById('cancelModal');
+                const facilityModal = document.getElementById('facilityModal');
+                const receiptModal = document.getElementById('receiptModal');
+                if (!cancelModal.classList.contains('hidden')) {
+                    closeCancelModal();
+                }
+                if (!facilityModal.classList.contains('hidden')) {
+                    closeFacilityModal();
+                }
+                if (!receiptModal.classList.contains('hidden')) {
+                    closeReceiptModal();
+                }
+            }
+        });
+        
+        // Close facility modal when clicking outside
+        document.getElementById('facilityModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeFacilityModal();
+            }
+        });
+
+        // Close receipt modal when clicking outside
+        document.getElementById('receiptModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeReceiptModal();
+            }
+        });
+
+        // Handle form submission with loading state
+        document.getElementById('cancelForm').addEventListener('submit', function(e) {
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Cancelling...';
+            // The form will submit normally, but we show loading state
+            setTimeout(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }, 2000);
+        });
     </script>
 </body>
 </html>
