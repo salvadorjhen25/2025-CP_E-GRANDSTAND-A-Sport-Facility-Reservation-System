@@ -11,13 +11,43 @@ try {
         facility_id INT NOT NULL,
         name VARCHAR(100) NOT NULL,
         description TEXT,
-        price_per_hour DECIMAL(10,2) NOT NULL,
+        pricing_type ENUM('hour', 'day', 'session') DEFAULT 'hour',
+        price_per_unit DECIMAL(10,2) NOT NULL,
         is_active BOOLEAN DEFAULT TRUE,
         sort_order INT DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (facility_id) REFERENCES facilities(id) ON DELETE CASCADE
     )");
+    
+    // Migration: Add new columns if they don't exist
+    try {
+        $pdo->exec("ALTER TABLE facility_pricing_options 
+                    ADD COLUMN IF NOT EXISTS pricing_type ENUM('hour', 'day', 'session') DEFAULT 'hour' AFTER description");
+        $pdo->exec("ALTER TABLE facility_pricing_options 
+                    ADD COLUMN IF NOT EXISTS price_per_unit DECIMAL(10,2) NOT NULL DEFAULT 0 AFTER pricing_type");
+        
+        // Check if old column exists and migrate data
+        $columns = $pdo->query("SHOW COLUMNS FROM facility_pricing_options LIKE 'price_per_hour'")->fetchAll();
+        if (!empty($columns)) {
+            // Migrate existing data: copy price_per_hour to price_per_unit and set pricing_type to 'hour'
+            $pdo->exec("UPDATE facility_pricing_options 
+                        SET price_per_unit = price_per_hour, pricing_type = 'hour' 
+                        WHERE price_per_unit = 0 AND price_per_hour > 0");
+        }
+} catch (Exception $e) {
+    // Migration failed, but continue
+    error_log("Pricing options migration failed: " . $e->getMessage());
+}
+
+// Debug: Check current database structure
+try {
+    $columns = $pdo->query("SHOW COLUMNS FROM facility_pricing_options")->fetchAll();
+    error_log("Current facility_pricing_options columns: " . print_r($columns, true));
+} catch (Exception $e) {
+    error_log("Could not check database structure: " . $e->getMessage());
+}
+    
     $pdo->exec("CREATE TABLE IF NOT EXISTS reservation_pricing_selections (
         id INT PRIMARY KEY AUTO_INCREMENT,
         reservation_id INT NOT NULL,
@@ -91,7 +121,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pricing_options = [];
                 if (!empty($pricing_options_json)) {
                     $decoded = json_decode($pricing_options_json, true);
-                    if (is_array($decoded)) { $pricing_options = $decoded; }
+                    if (is_array($decoded)) { 
+                        $pricing_options = $decoded; 
+                        error_log("Received pricing options: " . print_r($pricing_options, true)); // Debug log
+                    }
                 }
                 if (empty($name) || empty($description) || $hourly_rate <= 0 || ($capacity !== null && $capacity <= 0)) {
                     $error_message = 'Please fill in all required fields with valid values.';
@@ -124,15 +157,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $stmt->execute([$name, $description, $hourly_rate, $capacity, $category_id, $image_url, $is_active]);
                         $new_facility_id = (int)$pdo->lastInsertId();
                         if (!empty($pricing_options) && $new_facility_id > 0) {
-                            $insertPo = $pdo->prepare("INSERT INTO facility_pricing_options (facility_id, name, description, price_per_hour, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?)");
+                            error_log("Inserting pricing options for facility ID: " . $new_facility_id); // Debug log
+                            $insertPo = $pdo->prepare("INSERT INTO facility_pricing_options (facility_id, name, description, pricing_type, price_per_unit, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)");
                             foreach ($pricing_options as $po) {
                                 $po_name = isset($po['name']) ? trim($po['name']) : '';
                                 $po_desc = isset($po['description']) ? trim($po['description']) : null;
-                                $po_price = isset($po['price_per_hour']) ? floatval($po['price_per_hour']) : 0;
+                                $po_type = isset($po['pricing_type']) ? trim($po['pricing_type']) : 'hour';
+                                $po_price = isset($po['price_per_unit']) ? floatval($po['price_per_unit']) : 0;
                                 $po_order = isset($po['sort_order']) ? intval($po['sort_order']) : 0;
                                 $po_active = !empty($po['is_active']) ? 1 : 0;
+                                
+                                error_log("Inserting pricing option: name=$po_name, type=$po_type, price=$po_price"); // Debug log
+                                
                                 if (!empty($po_name) && $po_price > 0) {
-                                    $insertPo->execute([$new_facility_id, $po_name, $po_desc, $po_price, $po_order, $po_active]);
+                                    $insertPo->execute([$new_facility_id, $po_name, $po_desc, $po_type, $po_price, $po_order, $po_active]);
                                 }
                             }
                         }
@@ -189,22 +227,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ");
                         $stmt->execute([$name, $description, $hourly_rate, $capacity, $category_id, $image_url, $is_active, $facility_id]);
                         if (!empty($pricing_options)) {
-                            $updatePo = $pdo->prepare("UPDATE facility_pricing_options SET name = ?, description = ?, price_per_hour = ?, sort_order = ?, is_active = ?, updated_at = NOW() WHERE id = ? AND facility_id = ?");
-                            $insertPo = $pdo->prepare("INSERT INTO facility_pricing_options (facility_id, name, description, price_per_hour, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?)");
+                            $updatePo = $pdo->prepare("UPDATE facility_pricing_options SET name = ?, description = ?, pricing_type = ?, price_per_unit = ?, sort_order = ?, is_active = ?, updated_at = NOW() WHERE id = ? AND facility_id = ?");
+                            $insertPo = $pdo->prepare("INSERT INTO facility_pricing_options (facility_id, name, description, pricing_type, price_per_unit, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)");
                             $providedIds = [];
                             foreach ($pricing_options as $po) {
                                 $po_id = isset($po['id']) ? intval($po['id']) : 0;
                                 $po_name = isset($po['name']) ? trim($po['name']) : '';
                                 $po_desc = isset($po['description']) ? trim($po['description']) : null;
-                                $po_price = isset($po['price_per_hour']) ? floatval($po['price_per_hour']) : 0;
+                                $po_type = isset($po['pricing_type']) ? trim($po['pricing_type']) : 'hour';
+                                $po_price = isset($po['price_per_unit']) ? floatval($po['price_per_unit']) : 0;
                                 $po_order = isset($po['sort_order']) ? intval($po['sort_order']) : 0;
                                 $po_active = !empty($po['is_active']) ? 1 : 0;
                                 if (empty($po_name) || $po_price <= 0) { continue; }
                                 if ($po_id > 0) {
-                                    $updatePo->execute([$po_name, $po_desc, $po_price, $po_order, $po_active, $po_id, $facility_id]);
+                                    $updatePo->execute([$po_name, $po_desc, $po_type, $po_price, $po_order, $po_active, $po_id, $facility_id]);
                                     $providedIds[] = $po_id;
                                 } else {
-                                    $insertPo->execute([$facility_id, $po_name, $po_desc, $po_price, $po_order, $po_active]);
+                                    $insertPo->execute([$facility_id, $po_name, $po_desc, $po_type, $po_price, $po_order, $po_active]);
                                 }
                             }
                             // Deactivate pricing options not provided in payload
@@ -384,7 +423,7 @@ $facilities = $stmt->fetchAll();
 // Attach pricing options per facility for inline editing
 foreach ($facilities as &$facItem) {
     try {
-        $stmtPo = $pdo->prepare("SELECT id, name, description, price_per_hour, is_active, sort_order FROM facility_pricing_options WHERE facility_id = ? ORDER BY sort_order ASC, name ASC");
+        $stmtPo = $pdo->prepare("SELECT id, name, description, pricing_type, price_per_unit, is_active, sort_order FROM facility_pricing_options WHERE facility_id = ? ORDER BY sort_order ASC, name ASC");
         $stmtPo->execute([$facItem['id']]);
         $facItem['pricing_options'] = $stmtPo->fetchAll();
     } catch (Exception $e) {
@@ -449,7 +488,7 @@ $categories = $stmt->fetchAll();
                 tables.forEach(table => {
                     if (window.innerWidth <= 768) {
                         // Create mobile card wrapper if it doesn't exist
-                        if (!table.parentElement.classList.contains("mobile-table-card")) {
+                        if (!table.parentElement || !table.parentElement.classList.contains("mobile-table-card")) {
                             const wrapper = document.createElement("div");
                             wrapper.className = "mobile-table-card";
                             table.parentNode.insertBefore(wrapper, table);
@@ -541,7 +580,7 @@ $categories = $stmt->fetchAll();
                 tables.forEach(table => {
                     if (window.innerWidth <= 768) {
                         // Create mobile card wrapper if it doesn't exist
-                        if (!table.parentElement.classList.contains("mobile-table-card")) {
+                        if (!table.parentElement || !table.parentElement.classList.contains("mobile-table-card")) {
                             const wrapper = document.createElement("div");
                             wrapper.className = "mobile-table-card";
                             table.parentNode.insertBefore(wrapper, table);
@@ -664,7 +703,7 @@ $categories = $stmt->fetchAll();
                 tables.forEach(table => {
                     if (window.innerWidth <= 768) {
                         // Create mobile card wrapper if it doesn't exist
-                        if (!table.parentElement.classList.contains("mobile-table-card")) {
+                        if (!table.parentElement || !table.parentElement.classList.contains("mobile-table-card")) {
                             const wrapper = document.createElement("div");
                             wrapper.className = "mobile-table-card";
                             table.parentNode.insertBefore(wrapper, table);
@@ -1780,32 +1819,32 @@ $categories = $stmt->fetchAll();
     </form>
     <!-- Add/Edit Facility Modal -->
     <div id="facilityModal" class="modal fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center opacity-0 invisible">
-        <div class="modal-content bg-white rounded-2xl shadow-2xl max-w-7xl w-full mx-2 lg:mx-6" style="max-height: 85vh; overflow-y: auto;">
-            <div class="p-8">
-                <div class="flex justify-between items-center mb-8">
+        <div class="modal-content bg-white rounded-2xl shadow-2xl max-w-6xl w-full mx-2 lg:mx-6" style="max-height: 90vh; overflow-y: auto;">
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-6">
                     <h2 id="modalTitle" class="text-2xl font-bold text-gray-900 flex items-center">
-                        <i class="fas fa-building text-primary mr-3"></i>Add New Facility
+                        <i class="fas fa-building text-blue-600 mr-3"></i>Add New Facility
                     </h2>
-                    <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition duration-200">
-                        <i class="fas fa-times text-2xl"></i>
+                    <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition duration-200 p-2 hover:bg-gray-100 rounded-full">
+                        <i class="fas fa-times text-xl"></i>
                     </button>
                 </div>
-                <form id="facilityForm" method="POST" class="space-y-6" enctype="multipart/form-data">
+                <form id="facilityForm" method="POST" class="space-y-4" enctype="multipart/form-data">
                     <input type="hidden" id="action" name="action" value="add_facility">
                     <input type="hidden" id="facility_id" name="facility_id">
                     <input type="hidden" id="pricing_options_json" name="pricing_options_json">
                     
                     <!-- Basic Information Section -->
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                         <div>
                             <label for="name" class="block text-sm font-semibold text-gray-700 mb-2">🏢 Facility Name *</label>
                             <input type="text" id="name" name="name" required 
-                                   class="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition duration-200 bg-white">
+                                   class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 bg-white">
                         </div>
                         <div>
                             <label for="category_id" class="block text-sm font-semibold text-gray-700 mb-2">🏷️ Category *</label>
                             <select id="category_id" name="category_id" required 
-                                    class="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition duration-200 bg-white">
+                                    class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 bg-white">
                                 <option value="">Select Category</option>
                                 <?php foreach ($categories as $category): ?>
                                     <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['name']); ?></option>
@@ -1817,7 +1856,7 @@ $categories = $stmt->fetchAll();
                     <div>
                         <label for="description" class="block text-sm font-semibold text-gray-700 mb-2">📝 Description *</label>
                         <textarea id="description" name="description" rows="3" required
-                                  class="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition duration-200 bg-white"></textarea>
+                                  class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 bg-white"></textarea>
                     </div>
                     
                     <!-- Pricing and Capacity Section -->
@@ -1825,12 +1864,12 @@ $categories = $stmt->fetchAll();
                         <div>
                             <label for="hourly_rate" class="block text-sm font-semibold text-gray-700 mb-2">⏰ Hourly Rate (₱) *</label>
                             <input type="number" id="hourly_rate" name="hourly_rate" step="0.01" min="0" required 
-                                   class="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition duration-200 bg-white">
+                                   class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 bg-white">
                         </div>
                         <div>
                             <label for="capacity" class="block text-sm font-semibold text-gray-700 mb-2">👥 Capacity (Optional)</label>
                             <input type="number" id="capacity" name="capacity" min="1" 
-                                   class="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary transition duration-200 bg-white"
+                                   class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition duration-200 bg-white"
                                    placeholder="Leave empty if no capacity limit">
                         </div>
                     </div>
@@ -1873,21 +1912,30 @@ $categories = $stmt->fetchAll();
                     </div>
 
                     <!-- Pricing Options Section -->
-                    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                        <div class="flex items-center justify-between mb-3">
-                            <label class="block text-sm font-semibold text-gray-700">💲 Pricing Options</label>
-                            <button type="button" onclick="addPricingRow()" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-semibold">Add Option</button>
+                    <div class="bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center">
+                                <i class="fas fa-tags text-blue-600 mr-2"></i>
+                                <label class="text-sm font-bold text-gray-800">Pricing Options</label>
+                            </div>
+                            <button type="button" onclick="addPricingRow()" 
+                                    class="bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition duration-200 transform hover:scale-105 shadow-md">
+                                <i class="fas fa-plus mr-1"></i>Add Option
+                            </button>
                         </div>
-                        <div id="pricingOptionsContainer" class="space-y-2"></div>
-                        <p class="text-xs text-gray-500 mt-2">Add different packages like Lights On/Off, With Aircon, etc.</p>
+                        <div id="pricingOptionsContainer" class="space-y-3"></div>
+                        <p class="text-xs text-blue-600 mt-3 flex items-center">
+                            <i class="fas fa-info-circle mr-1"></i>
+                            Add different pricing packages like "With Aircon", "Full Day Rate", "Morning Session", etc.
+                        </p>
                     </div>
-                    <div class="flex space-x-4 pt-6">
+                    <div class="flex space-x-3 pt-4">
                         <button type="submit" id="submitBtn" 
-                                class="flex-1 bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white py-3 px-6 rounded-xl font-semibold transition duration-200 transform hover:scale-105 shadow-lg">
+                                class="flex-1 bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white py-2 px-4 rounded-lg font-semibold transition duration-200 transform hover:scale-105 shadow-md">
                             <i class="fas fa-save mr-2"></i>Save Facility
                         </button>
                         <button type="button" onclick="closeModal()" 
-                                class="flex-1 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white py-3 px-6 rounded-xl font-semibold transition duration-200 transform hover:scale-105 shadow-lg">
+                                class="flex-1 bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white py-2 px-4 rounded-lg font-semibold transition duration-200 transform hover:scale-105 shadow-md">
                             <i class="fas fa-times mr-2"></i>Cancel
                         </button>
                     </div>
@@ -2050,7 +2098,8 @@ $categories = $stmt->fetchAll();
                     id: po.id || null,
                     name: po.name || '',
                     description: po.description || '',
-                    price_per_hour: po.price_per_hour || 0,
+                    pricing_type: po.pricing_type || 'hour',
+                    price_per_unit: po.price_per_unit || po.price_per_hour || 0, // fallback for migration
                     sort_order: po.sort_order || 0,
                     is_active: (po.is_active == 1)
                 };
@@ -2208,8 +2257,12 @@ $categories = $stmt->fetchAll();
             const facilityForm = document.getElementById('facilityForm');
             if (facilityForm) {
                 facilityForm.addEventListener('submit', function(){
+                    console.log('Form submitting with pricing options:', pricingOptions); // Debug log
                     const hidden = document.getElementById('pricing_options_json');
-                    if (hidden) { hidden.value = JSON.stringify(pricingOptions); }
+                    if (hidden) { 
+                        hidden.value = JSON.stringify(pricingOptions); 
+                        console.log('Serialized pricing options:', hidden.value); // Debug log
+                    }
                 });
             }
         });
@@ -2235,7 +2288,8 @@ $categories = $stmt->fetchAll();
             document.addEventListener('click', function(e) {
                 const mobileToggle = document.querySelector('.mobile-menu-toggle');
                 const navContainer = document.querySelector('.nav-links-container');
-                if (!mobileToggle.contains(e.target) && !navContainer.contains(e.target)) {
+                if (mobileToggle && navContainer && 
+                    !mobileToggle.contains(e.target) && !navContainer.contains(e.target)) {
                     mobileToggle.classList.remove('active');
                     navContainer.classList.remove('show');
                 }
@@ -2247,35 +2301,79 @@ $categories = $stmt->fetchAll();
             const container = document.getElementById('pricingOptionsContainer');
             if (!container) return;
             container.innerHTML = '';
+            
+            console.log('Rendering pricing options:', pricingOptions); // Debug log
+            
             pricingOptions.forEach(function(po, index){
+                console.log(`Rendering option ${index}:`, po); // Debug log
+                
                 const row = document.createElement('div');
-                row.className = 'grid grid-cols-1 md:grid-cols-12 gap-2 items-center';
+                row.className = 'bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow duration-200';
                 row.innerHTML = `
                     <input type="hidden" value="${po.id ? po.id : ''}" data-index="${index}" />
-                    <div class="md:col-span-3">
-                        <input type="text" class="w-full border-2 border-gray-200 rounded-lg px-3 py-2" placeholder="Name (e.g., With Aircon)" value="${escapeHtml(po.name)}" oninput="updatePo(${index}, 'name', this.value)" />
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
+                        <div class="lg:col-span-3">
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Option Name</label>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                                   placeholder="e.g., With Aircon" value="${escapeHtml(po.name)}" 
+                                   oninput="updatePo(${index}, 'name', this.value)" />
+                        </div>
+                        <div class="lg:col-span-3">
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Description</label>
+                            <input type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                                   placeholder="Optional description" value="${escapeHtml(po.description)}" 
+                                   oninput="updatePo(${index}, 'description', this.value)" />
+                        </div>
+                        <div class="lg:col-span-2">
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Pricing Type</label>
+                            <select class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                                    onchange="updatePo(${index}, 'pricing_type', this.value)">
+                                <option value="hour" ${po.pricing_type === 'hour' ? 'selected' : ''}>Per Hour</option>
+                                <option value="day" ${po.pricing_type === 'day' ? 'selected' : ''}>Per Day</option>
+                                <option value="session" ${po.pricing_type === 'session' ? 'selected' : ''}>Per Session</option>
+                            </select>
+                        </div>
+                        <div class="lg:col-span-2">
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Price</label>
+                            <input type="number" step="0.01" min="0" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                                   placeholder="0.00" value="${po.price_per_unit || po.price_per_hour || 0}" 
+                                   oninput="updatePo(${index}, 'price_per_unit', this.value)" />
+                        </div>
+                        <div class="lg:col-span-1">
+                            <label class="block text-xs font-semibold text-gray-600 mb-1">Order</label>
+                            <input type="number" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                                   placeholder="#" value="${po.sort_order}" 
+                                   oninput="updatePo(${index}, 'sort_order', this.value)" />
+                        </div>
+                        <div class="lg:col-span-1 flex items-center justify-center">
+                            <div class="flex flex-col items-center">
+                                <label class="block text-xs font-semibold text-gray-600 mb-1">Active</label>
+                                <input type="checkbox" ${po.is_active ? 'checked' : ''} 
+                                       class="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded" 
+                                       onchange="updatePo(${index}, 'is_active', this.checked)" />
+                            </div>
+                        </div>
                     </div>
-                    <div class="md:col-span-4">
-                        <input type="text" class="w-full border-2 border-gray-200 rounded-lg px-3 py-2" placeholder="Description" value="${escapeHtml(po.description)}" oninput="updatePo(${index}, 'description', this.value)" />
-                    </div>
-                    <div class="md:col-span-2">
-                        <input type="number" step="0.01" min="0" class="w-full border-2 border-gray-200 rounded-lg px-3 py-2" placeholder="Price/hr" value="${po.price_per_hour}" oninput="updatePo(${index}, 'price_per_hour', this.value)" />
-                    </div>
-                    <div class="md:col-span-1">
-                        <input type="number" class="w-full border-2 border-gray-200 rounded-lg px-3 py-2" placeholder="#" value="${po.sort_order}" oninput="updatePo(${index}, 'sort_order', this.value)" />
-                    </div>
-                    <div class="md:col-span-1 flex items-center justify-center">
-                        <input type="checkbox" ${po.is_active ? 'checked' : ''} onchange="updatePo(${index}, 'is_active', this.checked)" />
-                    </div>
-                    <div class="md:col-span-1 flex items-center justify-end">
-                        <button type="button" class="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm" onclick="removePricingRow(${index})"><i class="fas fa-trash"></i></button>
+                    <div class="flex justify-end mt-3">
+                        <button type="button" class="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded-lg text-sm font-semibold transition duration-200 transform hover:scale-105" 
+                                onclick="removePricingRow(${index})">
+                            <i class="fas fa-trash mr-1"></i>Remove
+                        </button>
                     </div>
                 `;
                 container.appendChild(row);
             });
         }
         function addPricingRow() {
-            pricingOptions.push({ id: null, name: '', description: '', price_per_hour: 0, sort_order: pricingOptions.length + 1, is_active: true });
+            pricingOptions.push({ 
+                id: null, 
+                name: '', 
+                description: '', 
+                pricing_type: 'hour',
+                price_per_unit: 0, 
+                sort_order: pricingOptions.length + 1, 
+                is_active: true 
+            });
             renderPricingOptions();
         }
         function removePricingRow(index) {
@@ -2284,11 +2382,53 @@ $categories = $stmt->fetchAll();
         }
         function updatePo(index, field, value) {
             if (!pricingOptions[index]) return;
-            if (field === 'price_per_hour') { value = parseFloat(value) || 0; }
+            if (field === 'price_per_unit') { value = parseFloat(value) || 0; }
             if (field === 'sort_order') { value = parseInt(value) || 0; }
             if (field === 'is_active') { value = !!value; }
             pricingOptions[index][field] = value;
+            console.log(`Updated pricing option ${index}.${field} = ${value}`); // Debug log
         }
+        // Test function to debug pricing options
+        window.testPricingOptions = function() {
+            console.log('Current pricingOptions array:', pricingOptions);
+            console.log('Adding test pricing option...');
+            pricingOptions.push({
+                id: null,
+                name: 'Test Option',
+                description: 'Test Description',
+                pricing_type: 'hour',
+                price_per_unit: 25.50,
+                sort_order: 1,
+                is_active: true
+            });
+            console.log('Updated pricingOptions array:', pricingOptions);
+            renderPricingOptions();
+        };
+        
+        // Function to check form submission data
+        window.checkFormData = function() {
+            console.log('Current pricingOptions before form submission:', pricingOptions);
+            const hidden = document.getElementById('pricing_options_json');
+            if (hidden) {
+                hidden.value = JSON.stringify(pricingOptions);
+                console.log('Serialized data:', hidden.value);
+            }
+        };
+        
+        // Function to simulate form submission
+        window.simulateFormSubmit = function() {
+            console.log('Simulating form submission...');
+            const hidden = document.getElementById('pricing_options_json');
+            if (hidden) {
+                hidden.value = JSON.stringify(pricingOptions);
+                console.log('Form data would be sent:', {
+                    pricing_options_json: hidden.value,
+                    action: document.getElementById('action').value,
+                    facility_id: document.getElementById('facility_id').value
+                });
+            }
+        };
+        
         function escapeHtml(str) {
             if (str === null || str === undefined) return '';
             return String(str)
@@ -2345,7 +2485,7 @@ $categories = $stmt->fetchAll();
                 tables.forEach(table => {
                     if (window.innerWidth <= 768) {
                         // Create mobile card wrapper if it doesn't exist
-                        if (!table.parentElement.classList.contains("mobile-table-card")) {
+                        if (!table.parentElement || !table.parentElement.classList.contains("mobile-table-card")) {
                             const wrapper = document.createElement("div");
                             wrapper.className = "mobile-table-card";
                             table.parentNode.insertBefore(wrapper, table);

@@ -1447,6 +1447,19 @@ try {
                     </div>
                 </div>
             </a>
+            <a href="../admin_feedback.php" class="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition duration-200 transform hover:scale-105 animate-slide-up" style="animation-delay: 1.1s;">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <div class="w-8 h-8 bg-purple-500 rounded-md flex items-center justify-center">
+                            <i class="fas fa-comments text-white"></i>
+                        </div>
+                    </div>
+                    <div class="ml-4">
+                        <h3 class="text-lg font-medium text-gray-900">Feedback & Reviews</h3>
+                        <p class="text-sm text-gray-500">Manage user feedback and reviews</p>
+                    </div>
+                </div>
+            </a>
         </div>
     </div>
     <script>

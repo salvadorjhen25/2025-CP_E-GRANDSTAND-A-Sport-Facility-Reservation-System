@@ -181,7 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 // Get all users (including admins and staff)
 $stmt = $pdo->query("
-    SELECT u.id, u.username, u.full_name, u.email, u.role, u.created_at, u.updated_at
+    SELECT u.id, u.username, u.full_name, u.email, u.organization, u.role, u.created_at, u.updated_at
     FROM users u 
     ORDER BY u.created_at DESC
 ");
@@ -317,6 +317,7 @@ $users = $stmt->fetchAll();
             document.getElementById('modalFullName').textContent = user.full_name;
             document.getElementById('modalEmail').textContent = user.email;
             document.getElementById('modalUsername').textContent = '@' + (user.username || 'N/A');
+            document.getElementById('modalOrganization').textContent = user.organization || 'Not specified';
             modal.classList.add('show');
             modal.style.pointerEvents = 'auto';
         }
@@ -1342,7 +1343,11 @@ $users = $stmt->fetchAll();
                             <h3 class="text-lg font-semibold text-gray-800 truncate"><?php echo htmlspecialchars($user['full_name']); ?></h3>
                             <span class="text-sm text-gray-500 font-mono">@<?php echo htmlspecialchars($user['username']); ?></span>
                         </div>
-                        <p class="text-gray-600 mb-4 text-sm truncate"><?php echo htmlspecialchars($user['email']); ?></p>
+                        <p class="text-gray-600 mb-2 text-sm truncate"><?php echo htmlspecialchars($user['email']); ?></p>
+                        <p class="text-gray-500 mb-4 text-xs truncate">
+                            <i class="fas fa-building mr-1"></i>
+                            <?php echo htmlspecialchars($user['organization'] ?? 'No organization'); ?>
+                        </p>
 
                         <!-- Action Buttons -->
                         <div class="flex flex-col space-y-2">
@@ -1350,7 +1355,8 @@ $users = $stmt->fetchAll();
                                 'full_name' => $user['full_name'] ?? 'N/A',
                                 'role' => $user['role'] ?? 'user',
                                 'email' => $user['email'] ?? 'N/A',
-                                'username' => $user['username'] ?? 'N/A'
+                                'username' => $user['username'] ?? 'N/A',
+                                'organization' => $user['organization'] ?? 'Not specified'
                             ])); ?>)" 
                                     class="w-full bg-gradient-to-r from-[#415E72] to-[#17313E] hover:from-[#17313E] hover:to-[#415E72] text-white text-center py-3 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-md">
                                 <i class="fas fa-eye mr-2"></i>View Details
@@ -1382,6 +1388,9 @@ $users = $stmt->fetchAll();
                                     <i class="fas fa-envelope mr-2"></i>Contact
                                 </th>
                                 <th class="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">
+                                    <i class="fas fa-building mr-2"></i>Organization
+                                </th>
+                                <th class="px-6 py-4 text-left text-xs font-semibold text-blue-700 uppercase tracking-wider">
                                     <i class="fas fa-shield-alt mr-2"></i>Role
                                 </th>
 
@@ -1410,6 +1419,9 @@ $users = $stmt->fetchAll();
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <div class="text-sm text-gray-900"><?php echo htmlspecialchars($user['email'] ?? ''); ?></div>
                                         <div class="text-sm text-gray-500"><?php echo isset($user['created_at']) ? date('M j, Y', strtotime($user['created_at'])) : 'N/A'; ?></div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900"><?php echo htmlspecialchars($user['organization'] ?? 'Not specified'); ?></div>
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap">
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium <?php 
@@ -1510,6 +1522,10 @@ $users = $stmt->fetchAll();
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Email</label>
                                 <p id="modalEmail" class="text-sm text-gray-900 mt-1"></p>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700">Organization</label>
+                                <p id="modalOrganization" class="text-sm text-gray-900 mt-1"></p>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-gray-700">Username</label>

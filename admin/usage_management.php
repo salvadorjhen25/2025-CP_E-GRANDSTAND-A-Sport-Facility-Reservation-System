@@ -18,8 +18,6 @@ function formatCountdown($minutes) {
         return $mins . 'm';
     }
 }
-$auth = new Auth();
-$auth->requireAdmin();
 $usageManager = new UsageManager();
 $paymentManager = new PaymentManager();
 $pdo = getDBConnection();
@@ -156,10 +154,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
+// Create usage log entries for confirmed reservations that don't have them
+$createdLogs = $usageManager->createUsageLogsForConfirmedReservations();
+if ($createdLogs > 0) {
+    $logMessage = "Created {$createdLogs} usage log entries for confirmed reservations.";
+    if (isset($success_message)) {
+        $success_message .= " " . $logMessage;
+    } else {
+        $success_message = $logMessage;
+    }
+}
+
 // Get current usage and pending verifications
 $currentUsage = $usageManager->getCurrentUsage(); // Only active usage now
 $readyUsage = $usageManager->getReadyUsage(); // Ready to start usage
 $pendingVerifications = $usageManager->getPendingVerifications();
+
 
 // Get late users (users who haven't started usage within grace period)
 $lateUsers = [];
@@ -1692,6 +1702,7 @@ function handleLateUser($reservationId, $action, $notes, $extendMinutes = 0, $ne
             </h1>
             <p class="text-gray-600">Track and verify facility usage by users</p>
         </div>
+
         <!-- Messages -->
         <?php if (isset($success_message)): ?>
             <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-6 animate-fade-in">
@@ -1831,6 +1842,25 @@ function handleLateUser($reservationId, $action, $notes, $extendMinutes = 0, $ne
                                          <i class="fas fa-calendar-alt mr-2 text-green-500"></i>
                                          Started: <?php echo date('M j, Y g:i A', strtotime($usage['started_at'])); ?>
                                      </p>
+                                     
+                                    <!-- Payment Verification Details -->
+                                    <?php if (isset($usage['or_number']) && $usage['or_number']): ?>
+                                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                                            <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">Payment Details</div>
+                                            <div class="space-y-1">
+                                                <div class="flex items-center text-sm">
+                                                    <i class="fas fa-receipt text-blue-600 mr-2"></i>
+                                                    <span class="text-gray-700">OR: <strong><?php echo htmlspecialchars($usage['or_number']); ?></strong></span>
+                                                </div>
+                                                <?php if (isset($usage['verified_by_admin']) && $usage['verified_by_admin']): ?>
+                                                    <div class="flex items-center text-sm">
+                                                        <i class="fas fa-user-shield text-blue-600 mr-2"></i>
+                                                        <span class="text-gray-700">Verified by: <strong><?php echo htmlspecialchars($usage['verified_by_admin']); ?></strong></span>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
                                      <!-- Enhanced End Time Countdown -->
                                      <div class="bg-gradient-to-r from-orange-50 to-red-50 border border-orange-200 rounded-lg p-3 mb-3 relative">
                                          <div class="flex items-center justify-between mb-2">
@@ -2030,6 +2060,25 @@ function handleLateUser($reservationId, $action, $notes, $extendMinutes = 0, $ne
                                          <?php echo date('g:i A', strtotime($usage['start_time'])); ?> - 
                                          <?php echo date('g:i A', strtotime($usage['end_time'])); ?>
                                      </p>
+                                     
+                                    <!-- Payment Verification Details -->
+                                    <?php if (isset($usage['or_number']) && $usage['or_number']): ?>
+                                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                                            <div class="text-xs text-gray-500 uppercase tracking-wide mb-2">Payment Details</div>
+                                            <div class="space-y-1">
+                                                <div class="flex items-center text-sm">
+                                                    <i class="fas fa-receipt text-blue-600 mr-2"></i>
+                                                    <span class="text-gray-700">OR: <strong><?php echo htmlspecialchars($usage['or_number']); ?></strong></span>
+                                                </div>
+                                                <?php if (isset($usage['verified_by_admin']) && $usage['verified_by_admin']): ?>
+                                                    <div class="flex items-center text-sm">
+                                                        <i class="fas fa-user-shield text-blue-600 mr-2"></i>
+                                                        <span class="text-gray-700">Verified by: <strong><?php echo htmlspecialchars($usage['verified_by_admin']); ?></strong></span>
+                                                    </div>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
                                      <!-- Enhanced Countdown Timer -->
                                      <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4 mb-4 relative">
                                          <div class="flex items-center justify-between mb-2">
@@ -2427,8 +2476,6 @@ function handleLateUser($reservationId, $action, $notes, $extendMinutes = 0, $ne
                     const reservationId = element.dataset.reservationId;
                     const startedAtString = element.dataset.usageStarted;
                     
-                    // Debug logging
-                    console.log('Timer init:', { reservationId, startedAtString, element });
                     
                     // Only initialize timer if started_at is not null/empty and not 'null' string
                     if (startedAtString && startedAtString !== 'null' && startedAtString !== '' && startedAtString !== 'true') {
@@ -2469,8 +2516,6 @@ function handleLateUser($reservationId, $action, $notes, $extendMinutes = 0, $ne
                             parentCard.classList.add('timer-active');
                         }
                         
-                        // Debug logging for timer updates
-                        console.log('Timer update:', { reservationId, timeString, elapsed });
                     }
                 };
                 // Update immediately
@@ -2502,7 +2547,6 @@ function handleLateUser($reservationId, $action, $notes, $extendMinutes = 0, $ne
         
         // Manual timer refresh function
         function refreshTimers() {
-            console.log('Refreshing timers...');
             
             // Stop all existing timers
             usageTimer.timers.forEach((timer, reservationId) => {
@@ -2893,14 +2937,12 @@ function handleLateUser($reservationId, $action, $notes, $extendMinutes = 0, $ne
          
                  // Initialize timers after a short delay to ensure DOM is ready
         setTimeout(() => {
-            console.log('Initializing timers after DOM ready...');
             refreshTimers();
         }, 500);
         
         // Also initialize when the page becomes visible (in case of tab switching)
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
-                console.log('Page became visible, checking timers...');
                 setTimeout(() => {
                     refreshTimers();
                 }, 100);
@@ -2928,7 +2970,6 @@ function handleLateUser($reservationId, $action, $notes, $extendMinutes = 0, $ne
             });
             
             if (brokenTimers > 0) {
-                console.log(`Found ${brokenTimers} broken timers, fixing...`);
                 refreshTimers();
             }
         }, 30000);
@@ -3067,42 +3108,60 @@ function handleLateUser($reservationId, $action, $notes, $extendMinutes = 0, $ne
         // Modal functions for beautiful confirmations
         function showStartUsageModal(reservationId) {
             const modal = document.getElementById('startUsageModal');
-            document.getElementById('startUsageReservationId').value = reservationId;
-            modal.classList.add('show');
-            modal.style.pointerEvents = 'auto';
+            const reservationIdInput = document.getElementById('startUsageReservationId');
+            
+            if (modal && reservationIdInput) {
+                reservationIdInput.value = reservationId;
+                modal.classList.add('show');
+                modal.style.pointerEvents = 'auto';
+            }
         }
         
         function closeStartUsageModal() {
             const modal = document.getElementById('startUsageModal');
-            modal.classList.remove('show');
-            modal.style.pointerEvents = 'none';
+            if (modal) {
+                modal.classList.remove('show');
+                modal.style.pointerEvents = 'none';
+            }
         }
         
         function showCompleteUsageModal(reservationId) {
             const modal = document.getElementById('completeUsageModal');
-            document.getElementById('completeUsageReservationId').value = reservationId;
-            modal.classList.add('show');
-            modal.style.pointerEvents = 'auto';
+            const reservationIdInput = document.getElementById('completeUsageReservationId');
+            
+            if (modal && reservationIdInput) {
+                reservationIdInput.value = reservationId;
+                modal.classList.add('show');
+                modal.style.pointerEvents = 'auto';
+            }
         }
         
         function closeCompleteUsageModal() {
             const modal = document.getElementById('completeUsageModal');
-            modal.classList.remove('show');
-            modal.style.pointerEvents = 'none';
+            if (modal) {
+                modal.classList.remove('show');
+                modal.style.pointerEvents = 'none';
+            }
         }
         
         // Late User Management Functions
         function showLateUserOptions(reservationId) {
             const modal = document.getElementById('lateUserModal');
-            document.getElementById('lateUserReservationId').value = reservationId;
-            modal.classList.add('show');
-            modal.style.pointerEvents = 'auto';
+            const reservationIdInput = document.getElementById('lateUserReservationId');
+            
+            if (modal && reservationIdInput) {
+                reservationIdInput.value = reservationId;
+                modal.classList.add('show');
+                modal.style.pointerEvents = 'auto';
+            }
         }
         
         function closeLateUserModal() {
             const modal = document.getElementById('lateUserModal');
-            modal.classList.remove('show');
-            modal.style.pointerEvents = 'none';
+            if (modal) {
+                modal.classList.remove('show');
+                modal.style.pointerEvents = 'none';
+            }
         }
         
         // Show/hide conditional options based on selected action
@@ -3129,18 +3188,28 @@ function handleLateUser($reservationId, $action, $notes, $extendMinutes = 0, $ne
         
         function closeUsageModal() {
             const modal = document.getElementById('usageModal');
-            modal.classList.remove('show');
-            modal.style.pointerEvents = 'none';
+            if (modal) {
+                modal.classList.remove('show');
+                modal.style.pointerEvents = 'none';
+            }
         }
         function verifyUsage(reservationId) {
             const modal = document.getElementById('usageModal');
-            document.getElementById('modalTitle').textContent = 'Verify Facility Usage';
-            document.getElementById('action').value = 'verify_usage';
-            document.getElementById('reservation_id').value = reservationId;
-            document.getElementById('notes').value = '';
-            document.getElementById('submitBtn').innerHTML = '<i class="fas fa-check mr-2"></i>Verify Usage';
-            modal.classList.add('show');
-            modal.style.pointerEvents = 'auto';
+            const modalTitle = document.getElementById('modalTitle');
+            const actionInput = document.getElementById('action');
+            const reservationIdInput = document.getElementById('reservation_id');
+            const notesInput = document.getElementById('notes');
+            const submitBtn = document.getElementById('submitBtn');
+            
+            if (modal && modalTitle && actionInput && reservationIdInput && notesInput && submitBtn) {
+                modalTitle.textContent = 'Verify Facility Usage';
+                actionInput.value = 'verify_usage';
+                reservationIdInput.value = reservationId;
+                notesInput.value = '';
+                submitBtn.innerHTML = '<i class="fas fa-check mr-2"></i>Verify Usage';
+                modal.classList.add('show');
+                modal.style.pointerEvents = 'auto';
+            }
         }
         function closeSuccessModal() {
             const modal = document.getElementById('successModal');
@@ -3435,7 +3504,6 @@ function handleLateUser($reservationId, $action, $notes, $extendMinutes = 0, $ne
              
              async autoStartUsage(reservationId) {
                  try {
-                     console.log(`Auto-starting usage for reservation ${reservationId}`);
                      // Create form and submit to start usage
                      const form = document.createElement('form');
                      form.method = 'POST';
@@ -3468,7 +3536,6 @@ function handleLateUser($reservationId, $action, $notes, $extendMinutes = 0, $ne
              
              async autoCompleteUsage(reservationId) {
                  try {
-                     console.log(`Auto-completing usage for reservation ${reservationId}`);
                      // Create form and submit to complete usage
                      const form = document.createElement('form');
                      form.method = 'POST';
@@ -3561,8 +3628,13 @@ function handleLateUser($reservationId, $action, $notes, $extendMinutes = 0, $ne
         function toggleMobileMenu() {
             const mobileToggle = document.querySelector(".mobile-menu-toggle");
             const navLinksContainer = document.querySelector(".nav-links-container");
-            mobileToggle.classList.toggle("active");
-            navLinksContainer.classList.toggle("show");
+            
+            if (mobileToggle) {
+                mobileToggle.classList.toggle("active");
+            }
+            if (navLinksContainer) {
+                navLinksContainer.classList.toggle("show");
+            }
         }
         // Combined mobile functionality
         document.addEventListener("DOMContentLoaded", function() {
@@ -3572,17 +3644,25 @@ function handleLateUser($reservationId, $action, $notes, $extendMinutes = 0, $ne
                 link.addEventListener("click", function() {
                     const mobileToggle = document.querySelector(".mobile-menu-toggle");
                     const navContainer = document.querySelector(".nav-links-container");
-                    mobileToggle.classList.remove("active");
-                    navContainer.classList.remove("show");
+                    
+                    if (mobileToggle) {
+                        mobileToggle.classList.remove("active");
+                    }
+                    if (navContainer) {
+                        navContainer.classList.remove("show");
+                    }
                 });
             });
             // Close mobile menu when clicking outside
             document.addEventListener("click", function(e) {
                 const mobileToggle = document.querySelector(".mobile-menu-toggle");
                 const navContainer = document.querySelector(".nav-links-container");
-                if (!mobileToggle.contains(e.target) && !navContainer.contains(e.target)) {
-                    mobileToggle.classList.remove("active");
-                    navContainer.classList.remove("show");
+                
+                if (mobileToggle && navContainer) {
+                    if (!mobileToggle.contains(e.target) && !navContainer.contains(e.target)) {
+                        mobileToggle.classList.remove("active");
+                        navContainer.classList.remove("show");
+                    }
                 }
             });
             // Improve mobile table scrolling
