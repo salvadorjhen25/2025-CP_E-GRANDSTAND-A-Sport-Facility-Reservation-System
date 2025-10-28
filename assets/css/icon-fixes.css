@@ -1,0 +1,460 @@
+/* Icon Fixes and Enhancements for Index.php */
+
+/* Ensure all Font Awesome icons are properly displayed */
+.fas, .far, .fab, .fal, .fad {
+    font-family: "Font Awesome 6 Free", "Font Awesome 6 Pro", "Font Awesome 6 Brands" !important;
+    font-weight: 900 !important;
+    font-style: normal !important;
+    font-variant: normal !important;
+    text-rendering: auto !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+}
+
+/* Specific icon fixes for index.php */
+
+/* Navigation icons */
+.nav-logo i.fas.fa-building {
+    font-size: 1.5rem !important;
+    color: white !important;
+    display: inline-block !important;
+}
+
+.nav-user-icon {
+    font-size: 1rem !important;
+    margin-right: 0.5rem !important;
+    color: #3b82f6 !important;
+}
+
+/* Hero section icons */
+.btn-hero i {
+    font-size: 1.125rem !important;
+    margin-right: 0.75rem !important;
+    display: inline-block !important;
+}
+
+/* Status section icons */
+.fas.fa-bolt {
+    font-size: 2.5rem !important;
+    color: white !important;
+    animation: pulse 2s infinite !important;
+    display: inline-block !important;
+}
+
+.fas.fa-clock {
+    font-size: 1rem !important;
+    color: white !important;
+    margin-right: 0.75rem !important;
+    display: inline-block !important;
+}
+
+.fas.fa-sync-alt {
+    font-size: 1rem !important;
+    color: white !important;
+    margin-right: 0.75rem !important;
+    display: inline-block !important;
+}
+
+.fas.fa-wifi {
+    font-size: 1rem !important;
+    color: white !important;
+    margin-right: 0.75rem !important;
+    display: inline-block !important;
+}
+
+/* Facility status card icons */
+.fas.fa-user {
+    font-size: 1rem !important;
+    color: white !important;
+    display: inline-block !important;
+}
+
+.fas.fa-clock {
+    font-size: 1rem !important;
+    color: white !important;
+    display: inline-block !important;
+}
+
+.fas.fa-hourglass-end {
+    font-size: 1rem !important;
+    color: #92400e !important;
+    margin-right: 0.5rem !important;
+    display: inline-block !important;
+}
+
+.fas.fa-exclamation-triangle {
+    font-size: 1.25rem !important;
+    color: #f59e0b !important;
+    display: inline-block !important;
+}
+
+/* Upcoming reservations icons */
+.fas.fa-calendar-alt {
+    font-size: 2rem !important;
+    color: #3b82f6 !important;
+    margin-right: 1rem !important;
+    display: inline-block !important;
+}
+
+.fas.fa-user {
+    font-size: 0.95rem !important;
+    color: #3b82f6 !important;
+    margin-right: 0.75rem !important;
+    display: inline-block !important;
+}
+
+.fas.fa-clock {
+    font-size: 0.95rem !important;
+    color: #3b82f6 !important;
+    margin-right: 0.75rem !important;
+    display: inline-block !important;
+}
+
+/* Filter section icons */
+.fas.fa-filter {
+    font-size: 1.5rem !important;
+    color: white !important;
+    display: inline-block !important;
+}
+
+.fas.fa-dollar-sign {
+    font-size: 1rem !important;
+    color: #3b82f6 !important;
+    margin-right: 0.5rem !important;
+    display: inline-block !important;
+}
+
+/* Facility card icons */
+.fas.fa-building {
+    font-size: 1.5rem !important;
+    color: #6b7280 !important;
+    display: inline-block !important;
+}
+
+.fas.fa-tag {
+    font-size: 1rem !important;
+    color: #3b82f6 !important;
+    margin-right: 0.5rem !important;
+    display: inline-block !important;
+}
+
+.fas.fa-clock {
+    font-size: 1rem !important;
+    color: #3b82f6 !important;
+    margin-right: 0.5rem !important;
+    display: inline-block !important;
+}
+
+/* Action button icons */
+.fas.fa-sign-in-alt {
+    font-size: 1.125rem !important;
+    margin-right: 0.75rem !important;
+    display: inline-block !important;
+}
+
+.fas.fa-user-plus {
+    font-size: 1.125rem !important;
+    margin-right: 0.75rem !important;
+    display: inline-block !important;
+}
+
+.fas.fa-calendar {
+    font-size: 1.125rem !important;
+    margin-right: 0.75rem !important;
+    display: inline-block !important;
+}
+
+.fas.fa-cog {
+    font-size: 1.125rem !important;
+    margin-right: 0.75rem !important;
+    display: inline-block !important;
+}
+
+.fas.fa-sign-out-alt {
+    font-size: 1.125rem !important;
+    margin-right: 0.75rem !important;
+    display: inline-block !important;
+}
+
+/* Footer icons */
+.fas.fa-envelope {
+    font-size: 1.125rem !important;
+    color: #3b82f6 !important;
+    margin-right: 0.75rem !important;
+    display: inline-block !important;
+}
+
+.fas.fa-phone {
+    font-size: 1.125rem !important;
+    color: #3b82f6 !important;
+    margin-right: 0.75rem !important;
+    display: inline-block !important;
+}
+
+.fas.fa-map-marker-alt {
+    font-size: 1.125rem !important;
+    color: #3b82f6 !important;
+    margin-right: 0.75rem !important;
+    display: inline-block !important;
+}
+
+/* No results section icons */
+.fas.fa-search {
+    font-size: 4rem !important;
+    color: #9ca3af !important;
+    margin-bottom: 1.5rem !important;
+    display: inline-block !important;
+}
+
+.fas.fa-undo {
+    font-size: 1rem !important;
+    margin-right: 0.5rem !important;
+    display: inline-block !important;
+}
+
+/* Lock icon for non-logged users */
+.fas.fa-lock {
+    font-size: 5rem !important;
+    color: #9ca3af !important;
+    margin-bottom: 2rem !important;
+    display: inline-block !important;
+}
+
+/* Check circle icon */
+.fas.fa-check-circle {
+    font-size: 3rem !important;
+    color: white !important;
+    display: inline-block !important;
+}
+
+.fas.fa-check {
+    font-size: 1.125rem !important;
+    color: #10b981 !important;
+    margin-right: 0.75rem !important;
+    display: inline-block !important;
+}
+
+/* Mobile menu hamburger icon */
+.mobile-menu-btn {
+    display: none !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    width: 44px !important;
+    height: 44px !important;
+    background: none !important;
+    border: none !important;
+    cursor: pointer !important;
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
+.mobile-menu-btn .hamburger-line {
+    display: block !important;
+    width: 35px !important;
+    height: 5px !important;
+    background-color: #ffffff !important;
+    margin: 3px 0 !important;
+    transition: all 0.3s ease !important;
+    border-radius: 5px !important;
+}
+
+.mobile-menu-btn.active .hamburger-line:nth-child(1) {
+    transform: rotate(-45deg) translate(-5px, 6px) !important;
+}
+
+.mobile-menu-btn.active .hamburger-line:nth-child(2) {
+    opacity: 0 !important;
+}
+
+.mobile-menu-btn.active .hamburger-line:nth-child(3) {
+    transform: rotate(45deg) translate(-5px, -6px) !important;
+}
+
+/* Show mobile menu button on mobile */
+@media (max-width: 768px) {
+    .mobile-menu-btn {
+        display: flex !important;
+    }
+}
+
+/* Mobile menu styling */
+.mobile-menu {
+    display: none !important;
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    background: white !important;
+    border-top: 1px solid #e5e7eb !important;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+    z-index: 50 !important;
+    padding: 1rem 0 !important;
+}
+
+.mobile-menu.show {
+    display: block !important;
+}
+
+.mobile-menu.hidden {
+    display: none !important;
+}
+
+/* Ensure mobile menu links are properly styled */
+.mobile-menu a {
+    display: block !important;
+    padding: 0.75rem 1rem !important;
+    color: #f8f8f8 !important;
+    text-decoration: none !important;
+    font-family: 'Poppins', sans-serif !important;
+    font-weight: 500 !important;
+    transition: background-color 0.3s ease !important;
+}
+
+.mobile-menu a:hover {
+    background-color: #f3f4f6 !important;
+}
+
+.mobile-menu a i {
+    margin-right: 0.75rem !important;
+    width: 20px !important;
+    text-align: center !important;
+}
+
+/* Ensure all icons have proper spacing and alignment */
+i[class*="fas"], i[class*="far"], i[class*="fab"] {
+    vertical-align: middle !important;
+    line-height: 1 !important;
+}
+
+/* Fix for SVG icons that might not be displaying */
+svg.size-4 {
+    width: 16px !important;
+    height: 16px !important;
+    display: inline-block !important;
+    vertical-align: middle !important;
+}
+
+/* Ensure proper icon sizing in different contexts */
+.btn i, .nav-btn i, .facility-actions i {
+    font-size: inherit !important;
+    line-height: inherit !important;
+}
+
+/* Fix for icons in status badges */
+.status-badge i {
+    font-size: 0.875rem !important;
+    margin-right: 0.5rem !important;
+}
+
+/* Fix for icons in overlay content */
+.overlay-content i {
+    font-size: 1rem !important;
+    margin-right: 0.5rem !important;
+}
+
+/* Ensure icons are visible in dark backgrounds */
+.hero-section i, .facility-status-card i, .footer i {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Fix for icons in gradient backgrounds */
+.btn-hero i, .facility-actions i {
+    text-shadow: none !important;
+}
+
+/* Ensure proper icon display in flex containers */
+.flex i, .d-flex i {
+    flex-shrink: 0 !important;
+}
+
+/* Fix for icons in grid layouts */
+.grid i {
+    display: inline-block !important;
+}
+
+/* Ensure icons are properly aligned in text */
+p i, span i, div i {
+    vertical-align: baseline !important;
+}
+
+/* Fix for icons in buttons */
+button i, a i {
+    pointer-events: none !important;
+}
+
+/* Ensure icons are visible on hover */
+.btn:hover i, .nav-btn:hover i, .facility-card:hover i {
+    transform: none !important;
+}
+
+/* Fix for icons in mobile menu */
+.mobile-menu i {
+    font-size: 1.125rem !important;
+    margin-right: 0.75rem !important;
+    display: inline-block !important;
+}
+
+/* Ensure proper icon sizing in responsive design */
+@media (max-width: 768px) {
+    .fas, .far, .fab {
+        font-size: 1rem !important;
+    }
+    
+    .hero-section .fas {
+        font-size: 1.5rem !important;
+    }
+    
+    .facility-card .fas {
+        font-size: 0.875rem !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .fas, .far, .fab {
+        font-size: 0.875rem !important;
+    }
+    
+    .hero-section .fas {
+        font-size: 1.25rem !important;
+    }
+    
+    .facility-card .fas {
+        font-size: 0.75rem !important;
+    }
+}
+
+/* Fix for missing Font Awesome classes */
+.fa-building::before { content: "\f1ad"; }
+.fa-user::before { content: "\f007"; }
+.fa-clock::before { content: "\f017"; }
+.fa-bolt::before { content: "\f0e7"; }
+.fa-sync-alt::before { content: "\f2f1"; }
+.fa-wifi::before { content: "\f1eb"; }
+.fa-hourglass-end::before { content: "\f253"; }
+.fa-exclamation-triangle::before { content: "\f071"; }
+.fa-calendar-alt::before { content: "\f073"; }
+.fa-filter::before { content: "\f0b0"; }
+.fa-dollar-sign::before { content: "\f155"; }
+.fa-tag::before { content: "\f02b"; }
+.fa-sign-in-alt::before { content: "\f2f6"; }
+.fa-user-plus::before { content: "\f234"; }
+.fa-calendar::before { content: "\f133"; }
+.fa-cog::before { content: "\f013"; }
+.fa-sign-out-alt::before { content: "\f2f5"; }
+.fa-envelope::before { content: "\f0e0"; }
+.fa-phone::before { content: "\f095"; }
+.fa-map-marker-alt::before { content: "\f3c5"; }
+.fa-search::before { content: "\f002"; }
+.fa-undo::before { content: "\f0e2"; }
+.fa-lock::before { content: "\f023"; }
+.fa-check-circle::before { content: "\f058"; }
+.fa-check::before { content: "\f00c"; }
+.fa-at::before { content: "\f1fa"; }
+.fa-eye::before { content: "\f06e"; }
+.fa-eye-slash::before { content: "\f070"; }
+.fa-arrow-left::before { content: "\f060"; }
+.fa-home::before { content: "\f015"; }
+.fa-times::before { content: "\f00d"; }
+.fa-exclamation-circle::before { content: "\f06a"; }
+.fa-info-circle::before { content: "\f05a"; }

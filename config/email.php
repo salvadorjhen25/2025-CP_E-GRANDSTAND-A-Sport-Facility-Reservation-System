@@ -2,12 +2,11 @@
 // Email Configuration
 define('SMTP_HOST', 'smtp.gmail.com'); // Change to your SMTP host
 define('SMTP_PORT', 587); // SMTP port (587 for TLS, 465 for SSL)
-define('SMTP_USERNAME', 'your-email@gmail.com'); // Your email address
-define('SMTP_PASSWORD', 'your-app-password'); // Your email password or app password
+define('SMTP_USERNAME', 'zamsportse@gmail.com'); // Your Gmail address
+define('SMTP_PASSWORD', 'qvaveftufvfxkdyc'); // Your Google App Password
 define('SMTP_SECURE', 'tls'); // 'tls' or 'ssl'
-define('SMTP_FROM_EMAIL', 'noreply@facilityreservation.com'); // From email address
+define('SMTP_FROM_EMAIL', 'zamsportse@gmail.com'); // From email address
 define('SMTP_FROM_NAME', 'Facility Reservation System'); // From name
-
 // Email Templates
 define('EMAIL_TEMPLATES', [
     'reservation_confirmation' => [
@@ -33,9 +32,12 @@ define('EMAIL_TEMPLATES', [
     'welcome_user' => [
         'subject' => 'Welcome to Facility Reservation System',
         'template' => 'emails/welcome_user.html'
+    ],
+    'password_reset' => [
+        'subject' => 'Password Reset Request - Facility Reservation System',
+        'template' => 'emails/password_reset.html'
     ]
 ]);
-
 // Admin email for notifications
 define('ADMIN_EMAIL', 'admin@facilityreservation.com');
 define('ADMIN_NAME', 'System Administrator');

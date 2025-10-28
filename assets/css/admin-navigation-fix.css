@@ -1,0 +1,332 @@
+/* Admin Navigation Fix - Prevents click interference between nav links */
+
+/* Fix for navigation link click interference - Using !important to override existing styles */
+.nav-link {
+    position: relative !important;
+    z-index: 1 !important;
+    margin: 0 8px !important;
+    padding: 12px 16px !important;
+    border-radius: 8px !important;
+    transition: all 0.3s ease !important;
+    text-decoration: none !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    white-space: nowrap !important;
+    min-width: fit-content !important;
+    isolation: isolate !important;
+    overflow: visible !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+}
+
+.nav-links-container {
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 8px !important;
+    overflow-x: auto !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+    position: relative !important;
+    z-index: 1000 !important;
+}
+
+.nav-links-container::-webkit-scrollbar {
+    display: none !important;
+}
+
+/* Ensure each nav link has its own click area */
+.nav-link::before {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: -1 !important;
+    border-radius: 8px !important;
+    background: transparent !important;
+    transition: all 0.3s ease !important;
+}
+
+.nav-link:hover::before {
+    background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.nav-link:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+.nav-link.active {
+    background: linear-gradient(135deg, #3B82F6 0%, #1E40AF 100%) !important;
+    color: white !important;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3) !important;
+}
+
+.nav-link.active::after {
+    content: '' !important;
+    position: absolute !important;
+    bottom: -2px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 20px !important;
+    height: 3px !important;
+    background: #3B82F6 !important;
+    border-radius: 2px !important;
+}
+
+.nav-link i {
+    font-size: 1.1rem !important;
+    transition: all 0.3s ease !important;
+}
+
+.nav-link:hover i {
+    transform: scale(1.1) !important;
+}
+
+.nav-link.active i {
+    color: white !important;
+}
+
+.nav-link span {
+    font-weight: 500 !important;
+    transition: all 0.3s ease !important;
+}
+
+/* Enhanced Notification Badge Styles - Fixed Visibility */
+.notification-badge {
+    position: absolute !important;
+    top: -6px !important;
+    right: -6px !important;
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+    color: white !important;
+    border-radius: 50% !important;
+    width: 22px !important;
+    height: 22px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 0.7rem !important;
+    font-weight: 700 !important;
+    border: 3px solid white !important;
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4) !important;
+    animation: pulse-notification 2s infinite !important;
+    z-index: 2 !important;
+    transition: all 0.3s ease !important;
+    pointer-events: none !important;
+}
+
+.notification-badge.warning {
+    background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+    box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4) !important;
+}
+
+.notification-badge.info {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4) !important;
+}
+
+.notification-badge.success {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4) !important;
+}
+
+@keyframes pulse-notification {
+    0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+    }
+    50% {
+        transform: scale(1.1);
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.6);
+    }
+}
+
+/* Prevent badge interference with adjacent links */
+.nav-link .notification-badge {
+    z-index: 2 !important;
+    pointer-events: none !important;
+}
+
+.nav-link:hover .notification-badge {
+    animation: none !important;
+    transform: scale(1.1) !important;
+}
+
+.nav-link:hover .notification-badge.warning {
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.6) !important;
+}
+
+.nav-link:hover .notification-badge.info {
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.6) !important;
+}
+
+.nav-link:hover .notification-badge.success {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.6) !important;
+}
+
+/* Ensure proper spacing between nav items */
+.nav-links-container > * {
+    flex-shrink: 0 !important;
+}
+
+/* Ensure nav-container doesn't clip badges */
+.nav-container {
+    overflow: visible !important;
+}
+
+/* Enhanced Mobile Responsive Fixes for Admin Navigation */
+@media (max-width: 768px) {
+    .nav-links-container {
+        gap: 2px !important;
+        padding: 4px !important;
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+    }
+    
+    .nav-link {
+        margin: 0 2px !important;
+        padding: 8px 10px !important;
+        font-size: 0.8rem !important;
+        min-width: 44px !important;
+        min-height: 44px !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+    }
+    
+    .nav-link span {
+        font-size: 0.7rem !important;
+        line-height: 1 !important;
+        margin-top: 2px !important;
+    }
+    
+    .nav-link i {
+        font-size: 1rem !important;
+        margin-bottom: 2px !important;
+    }
+    
+    .nav-link .notification-badge {
+        width: 16px !important;
+        height: 16px !important;
+        font-size: 0.6rem !important;
+        top: -2px !important;
+        right: -2px !important;
+    }
+}
+
+/* Extra small mobile devices */
+@media (max-width: 480px) {
+    .nav-links-container {
+        gap: 1px !important;
+        padding: 2px !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+    }
+    
+    .nav-links-container::-webkit-scrollbar {
+        display: none !important;
+    }
+    
+    .nav-link {
+        margin: 0 1px !important;
+        padding: 6px 8px !important;
+        font-size: 0.75rem !important;
+        min-width: 40px !important;
+        min-height: 40px !important;
+        flex-shrink: 0 !important;
+    }
+    
+    .nav-link span {
+        font-size: 0.65rem !important;
+        display: none !important; /* Hide text on very small screens */
+    }
+    
+    .nav-link i {
+        font-size: 0.9rem !important;
+    }
+    
+    .nav-link .notification-badge {
+        width: 14px !important;
+        height: 14px !important;
+        font-size: 0.55rem !important;
+        top: -1px !important;
+        right: -1px !important;
+    }
+}
+
+/* Landscape mobile orientation */
+@media (max-width: 768px) and (orientation: landscape) {
+    .nav-links-container {
+        flex-wrap: nowrap !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+    
+    .nav-link {
+        flex-shrink: 0 !important;
+        min-width: 50px !important;
+    }
+}
+
+/* Touch-friendly improvements */
+@media (max-width: 768px) {
+    .nav-link {
+        touch-action: manipulation !important;
+        -webkit-tap-highlight-color: transparent !important;
+    }
+    
+    .nav-link:active {
+        transform: scale(0.95) !important;
+        transition: transform 0.1s ease !important;
+    }
+}
+
+/* High contrast mode for mobile */
+@media (max-width: 768px) and (prefers-contrast: high) {
+    .nav-link {
+        border: 1px solid currentColor !important;
+    }
+    
+    .nav-link:hover {
+        background: rgba(0, 0, 0, 0.1) !important;
+    }
+    
+    .nav-link.active {
+        background: currentColor !important;
+        color: white !important;
+    }
+}
+
+/* Reduced motion for mobile */
+@media (max-width: 768px) and (prefers-reduced-motion: reduce) {
+    .nav-link {
+        transition: none !important;
+    }
+    
+    .nav-link:hover {
+        transform: none !important;
+    }
+    
+    .nav-link:active {
+        transform: none !important;
+    }
+}
+
+/* Prevent text selection on nav links */
+.nav-link * {
+    pointer-events: none !important;
+}
+
+.nav-link {
+    pointer-events: auto !important;
+}
